@@ -42,6 +42,7 @@ struct DIC {
 	char *prev_word;
 	char *last_word;
 	char dic_buff[DIC_SIZE];
+	char *curr_top;
 }	dic;
 
 
@@ -86,7 +87,7 @@ int *pop_int()
 	}
 }
 
-int put_str(char *str)
+int print(char *str)
 {
 	int len = 0;
 	if (str != NULL) {
@@ -99,7 +100,7 @@ int put_str(char *str)
 	return len;
 }
 
-int put_int(int num)
+int print_int(int num)
 {
 	int len = 0;
 	char buff[20];
@@ -107,7 +108,7 @@ int put_int(int num)
 	*--p = '\0';
 	do {
 		if (p == buff) {
-			put_str("too long num.\n");
+			print("too long num.\n");
 			break;
 		}
 		++len;
@@ -115,7 +116,29 @@ int put_int(int num)
 		*--p = '0'+dig;
 	} while (num /= 10);
 
-	put_str(p);
+	print(p);
+
+	return len;
+}
+
+int print_hex(int num)
+{
+	int len = 0;
+	char buff[20];
+	char *p = buff+sizeof(buff);
+	*--p = '\0';
+	do {
+		if (p == buff) {
+			print("too long num.\n");
+			break;
+		}
+		++len;
+		int dig = num % 16;
+		*--p = (dig<10) ?  '0'+dig : 'A'+dig;
+	} while (num /= 16);
+
+	print("$");
+	print(p);
 
 	return len;
 }
@@ -153,7 +176,7 @@ bool dot()	// print
 	int num;
 	int *t;
 	if ((t = pop_int()) != NULL) num = *t; else return false;
-	put_int(num);
+	print_int(num);
 	putc(' ', stdout);
 
 	return true;
@@ -292,7 +315,7 @@ bool append_word(struct DIC *dic, char* str)
 {
 	int len = strlen(str);
 	if (!check_rest(dic, len)) {
-		put_str("words buffer overfllow.\n");
+		print("words buffer overfllow.\n");
 		return false;
 	}
 	else {
@@ -304,10 +327,10 @@ bool append_word(struct DIC *dic, char* str)
 	return true;
 }
 
-bool append_name(struct DIC *dic, char* str)
+bool append_addr(struct DIC* dic, char *addr)
 {
 	if (!check_rest(dic, sizeof(char*))) {
-		put_str("words buffer overfllow.\n");
+		print("words buffer overfllow.\n");
 		return false;
 	}
 
@@ -316,10 +339,18 @@ bool append_name(struct DIC *dic, char* str)
 	*prev_word = last_word;
 	dic->append_pos += sizeof(*prev_word);
 
-	if (!append_word(dic, str)) {
-		// 登録失敗
-		return false;
-	}
+	return true;
+}
+
+bool append_name(struct DIC *dic, char* str)
+{
+//	if (!append_add(dic->prev_word))
+//		return false;
+
+	dic->curr_top = dic->append_pos;
+	if (!append_word(dic, str))
+		return false;		// 登録失敗
+
 	return true;
 }
 
@@ -367,6 +398,8 @@ void dic_entry(struct DIC* dic, char* str)
 	case 2:// body
 		append_body(dic, str);
 		if (strcmp(str, ";") == 0) {
+			dic->prev_word = dic->curr_top;
+			append_addr(dic, dic->curr_top);
 			dic->entry_step = 0;
 		}
 		break;
@@ -379,11 +412,28 @@ void dic_entry(struct DIC* dic, char* str)
 void dump_dic(struct DIC *dic)
 {
 	char* p = dic->dic_buff;
+	char *addr;
 	while (p < dic->append_pos) {
-		if (*p < ' ')
-			putc('\n', stdout);
-		else
-			putc(*p, stdout);
+		addr = p;
+		print("word_addr:");
+		print_hex(addr);
+		print("\n");
+
+		while (*p && p < dic->append_pos) {
+			char c = *p++;
+			if (c >= ' ')
+				putc(c, stdout);
+			else {
+				putc('\n', stdout);
+				break;
+			}
+		}
+		// prev_word;
+		char *addr = p;
+		print("prev_word:");
+		print_hex(addr);
+		print("\n");
+		p += sizeof(addr);
 	}
 }
 
@@ -396,7 +446,7 @@ void dump_dic(struct DIC *dic)
  */
 char *input()
 {
-	put_str("> ");
+	print("> ");
 	char *p = fgets(input_buff, sizeof(input_buff), stdin);
 
 	return p;
@@ -404,7 +454,11 @@ char *input()
 
 void proc(struct DIC* dic, char *str)
 {
-	char* tok = str;
+	char* tok;
+
+	strncpy(input_buff, str, sizeof(input_buff));
+	str = input_buff;
+
 	while ((tok = strtok(str, " \t\n")) != NULL) {
 		if (dic->entry_step == 0)
 			eval(tok);
@@ -418,7 +472,7 @@ void proc(struct DIC* dic, char *str)
 
 void init()
 {
-	put_str("++ Fake Fotrh ++");
+	print("++ Fake Fotrh ++");
 
 	// stack
 	sp = stack;
@@ -434,9 +488,9 @@ int main(void)
 {
 	init();
 
-	char *test = ": 1 2 + . ;";
-	proc(&dic, test);
+	proc(&dic, ": test 1 2 + . ; \n");
 	dump_dic(&dic);
+	proc(&dic, "test\n");
 
 	char *str;
 	while ((str = input()) != NULL) {
@@ -448,7 +502,7 @@ int main(void)
 //				dic_entry(str);
 //			str = NULL;
 //		}
-		put_str("ok ");
+		print("ok ");
 	}
 	return EXIT_SUCCESS;
 }
