@@ -146,6 +146,21 @@ int print_hex(int num)
 int print_addr(char* addr)
 {
 	unsigned long num = (unsigned long)addr;
+
+	int len = 0;
+	char buff[20];
+	char *p = buff+sizeof(buff);
+	*--p = '\0';
+	int addr_len = sizeof(char*);
+	for (int i=0; i<addr_len; i++) {
+		++len;
+		unsigned dig = num & 0x0f;
+		*--p = (dig<10) ?  '0'+dig : 'A'-10+dig;
+	}
+	print("$");
+	print(p);
+
+	/*
 	int len = 0;
 	char buff[20];
 	char *p = buff+sizeof(buff);
@@ -162,6 +177,7 @@ int print_addr(char* addr)
 
 	print("$");
 	print(p);
+	*/
 
 	return len;
 }
@@ -373,7 +389,7 @@ bool append_addr(struct DIC* dic, char *addr, bool inc_pos)
 	char **prev_word = (char**)dic->append_pos;
 	*prev_word = addr;
 	if (inc_pos)
-		dic->append_pos += sizeof(*prev_word);
+		dic->append_pos += sizeof(char *);
 
 	return true;
 }
@@ -401,7 +417,8 @@ bool append_body(struct DIC *dic, char* str)
 	dic->append_pos--;
 	append_word(dic, " \0");
 	dic->append_pos--;
-	append_addr(dic, dic->curr_word, false);
+//	append_addr(dic, dic->curr_word, false);
+	dic->last_word = dic->curr_word;
 
 	return true;
 }
@@ -424,10 +441,6 @@ bool append_body(struct DIC *dic, char* str)
 
 void dic_entry(struct DIC* dic, char* str)
 {
-	//if バッファ溢れ虫
-
-	char** prev_word = (char**)dic->last_word;
-
 	switch (dic->entry_step) {
 	case 0:	//
 		break;
@@ -442,7 +455,8 @@ void dic_entry(struct DIC* dic, char* str)
 		if (strcmp(str, ";") == 0) {
 			*(dic->append_pos-1) = '\0'; // 最後のスペースをNULLにする.
 			dic->prev_word = dic->curr_word;
-			append_addr(dic, dic->curr_word, true);
+			append_addr(dic, dic->prev_word, false);
+
 			dic->entry_step = 0;
 		}
 		break;
@@ -454,11 +468,11 @@ void dic_entry(struct DIC* dic, char* str)
 
 void dump_dic(struct DIC *dic)
 {
-	print("\ndic:"); print_addr((char*)dic); print("\n");
-	print("\ndic.append_pos:"); print_addr(dic->append_pos); print("\n");
-	print("\ndic.prev_word:"); print_addr(dic->prev_word); print("\n");
-	print("\ndic.last_word:"); print_addr(dic->last_word); print("\n");
-	print("\ndic.curr_word:"); print_addr(dic->curr_word); print("\n");
+	print("dic:"); print_addr((char*)dic); print("\n");
+	print("dic.append_pos:"); print_addr(dic->append_pos); print("\n");
+	print("dic.prev_word:"); print_addr(dic->prev_word); print("\n");
+	print("dic.last_word:"); print_addr(dic->last_word); print("\n");
+	print("dic.curr_word:"); print_addr(dic->curr_word); print("\n");
 
 	char* p = dic->dic_buff;
 	//char* addr;
@@ -468,7 +482,7 @@ void dump_dic(struct DIC *dic)
 		char **addr = (char**)p;
 		print_addr((char*)*addr);
 		print("\n");
-		p += sizeof(p);
+		p += sizeof(char*);
 
 		//word_addr = p;
 		print("\nword_addr:");
@@ -483,11 +497,6 @@ void dump_dic(struct DIC *dic)
 		p++;
 		print("\n");
 	}
-}
-
-char *get_tok(char *str, char* sep)
-{
-	return NULL;
 }
 
 /***
@@ -505,15 +514,14 @@ char *input()
 	return p;
 }
 
+
 void proc(struct DIC* dic, char *str)
 {
 	char* tok;
-	char* save_ptr;
+	char buff[INPUT_MAX];
+	strncpy(buff, str, sizeof(buff));
 
-//	strncpy(input_buff, str, sizeof(input_buff));
-//	str = input_buff;
-
-	while ((tok = strtok_r(str, " \t\n", &save_ptr)) != NULL) {
+	while ((tok = strtok(str, " \t\n")) != NULL) {
 		if (dic->entry_step == 0)
 			eval(tok);
 		else
@@ -544,8 +552,14 @@ int main(void)
 
 	char a[] = "addr test";
 	print_addr(a);
-	char test[] = ": test 1 2 + . ; \n";
-	proc(&dic, test);
+	char test1[] = ": test1 1 2 + . ; \n";
+	char test2[] = ": test2 2 3 * . ; \n";
+	char test3[] = ": test3 3 4 - . ; \n";
+	proc(&dic, test1);
+	dump_dic(&dic);
+	proc(&dic, test2);
+	dump_dic(&dic);
+	proc(&dic, test3);
 	dump_dic(&dic);
 	proc(&dic, "test\n");
 
