@@ -512,42 +512,56 @@ void eval(char *str)
 		}
 	}
 }
+
 void println(char* str)
 {
 	print(str);
 	print("\n");
 }
 
+char* get_token(char **str 		// 取り出し元の文字列
+				, char *tok		// 取り出し先のバッファ
+				, int tok_len	// バッファのサイズ
+				)
+{
+	// 引数 str は戻るときに検査した分だけ進められている.
+	char *src = *str;
+	char *dst = tok;
+	*dst = '\0';
+
+	while (*src && *src <= ' ') src++;
+	*str = src;			// 検査分引数のアドレスが進む
+	if (*src == '\0')
+		return NULL;	// 取り出すものがなかったとき
+
+	int siz = tok_len;
+	while (*src > ' ' && siz--) {
+		*dst++ = *src++;
+	}
+	*dst = '\0';
+	*str = src;			// 検査分引数のアドレスが進む
+
+	return tok;			// 取り出した結果
+}
 
 void proc(char *str)
 {
 	char token[20];
-	char* pos = str;
-	do {
-		while (*pos && *pos <= ' ' )
-			pos++;
-		if (*pos == '\0')
-			return;
-
-		char* tok = token;
-		while (*pos > ' ')
-			*tok++ = *pos++;
-		*tok = '\0';
-//		println(token);
-
+	char *tok;
+	while ((tok = get_token(&str, token, sizeof(token))) != NULL) {
 		if (*token != '\0') {
 			if (dic.entry_step == 0) {
-				char *wd = lookup_word(token);
+				char *wd = lookup_word(tok);
 				if (wd)
 					proc(wd);
 				else
-					eval(token);
+					eval(tok);
 			}
 			else {
-				dic_entry(token);
+				dic_entry(tok);
 			}
 		}
-	} while(*pos != '\0');
+	}
 }
 
 
