@@ -156,6 +156,7 @@ int print_addr(char* addr)
 		++len;
 		unsigned dig = num & 0x0f;
 		*--p = (dig<10) ?  '0'+dig : 'A'-10+dig;
+		num >>= 4;
 	}
 	print("$");
 	print(p);
@@ -561,7 +562,8 @@ int main(void)
 	dump_dic(&dic);
 	proc(&dic, test3);
 	dump_dic(&dic);
-	proc(&dic, "test\n");
+	char test[] = "test\n";
+	proc(&dic, test);
 
 	char *str;
 	while ((str = input()) != NULL) {
