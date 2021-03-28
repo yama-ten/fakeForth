@@ -38,7 +38,7 @@ struct DIC {
 	//    ';' を検出したら,登録終了処理. フラグは 0.
 	//
 
-	char append_pos;
+	char *append_pos;
 	char *prev_word;
 	char *last_word;
 	char dic_buff[DIC_SIZE];
@@ -53,21 +53,6 @@ struct DIC {
 struct PROC {
 	char* name;
 	bool (*func)();
-};
-
-struct PROC prim[] = {
-		{ "bye",	bye },
-		{ ":",		dic_entry_open },
-		{ ";", 		dic_entry_close },
-		{ ".",		dot },
-		{ "dup",	dup },
-		{ "swap",	swap },
-		{ "+", 		int_add },
-		{ "-", 		int_sub },
-		{ "*", 		int_mul },
-		{ "/", 		int_div },
-		{ "%", 		int_mod },
-		{ NULL, NULL }
 };
 
 bool is_num(char *str)
@@ -232,14 +217,30 @@ bool int_mod()
 
 bool dic_entry_open(char *str)
 {
-	dic_entry = 1;
+	dic.entry_step = 1;
+	return true;
 }
 
 bool dic_entry_close(char *str)
 {
-	dic_entry = 0;
+	dic.entry_step = 0;
+	return true;
 }
 
+struct PROC prim[] = {
+		{ "bye",	bye },
+		{ ":",		dic_entry_open },
+		{ ";", 		dic_entry_close },
+		{ ".",		dot },
+		{ "dup",	dup },
+		{ "swap",	swap },
+		{ "+", 		int_add },
+		{ "-", 		int_sub },
+		{ "*", 		int_mul },
+		{ "/", 		int_div },
+		{ "%", 		int_mod },
+		{ NULL, NULL }
+};
 
 
 bool (*lookup(char *str))()
@@ -350,21 +351,21 @@ bool append_body(struct DIC *dic, char* str)
 // [null] <-- next append_pos;
 
 
-dic_entry(char* str)
+void dic_entry(struct DIC* dic, char* str)
 {
 	//if バッファ溢れ虫
 
-	switch (dic.entry_step) {
+	switch (dic->entry_step) {
 	case 0:	//
 		break;
 
 	case 1:	// name
-		append_name(str);
-		dic.entry_step++;
+		append_name(dic, str);
+		dic->entry_step++;
 		break;
 
 	case 2:// body
-		append_body(str);
+		append_body(dic, str);
 		if (strcmp(str, ";") == 0) {
 			dic->entry_step = 0;
 		}
@@ -377,10 +378,12 @@ dic_entry(char* str)
 
 void dump_dic(struct DIC *dic)
 {
-	char p = dic->dic_buff;
+	char* p = dic->dic_buff;
 	while (p < dic->append_pos) {
-		if (*p < ' ') putc('\n', stdout);
-		else putc(*p, stdout);
+		if (*p < ' ')
+			putc('\n', stdout);
+		else
+			putc(*p, stdout);
 	}
 }
 
@@ -399,13 +402,14 @@ char *input()
 	return p;
 }
 
-void proc(char *str)
+void proc(struct DIC* dic, char *str)
 {
-	while ((str = strtok(str, " \t\n")) != NULL) {
-		if (dic.entry_step == 0)
-			eval(str);
+	char* tok = str;
+	while ((tok = strtok(str, " \t\n")) != NULL) {
+		if (dic->entry_step == 0)
+			eval(tok);
 		else
-			dic_entry(str);
+			dic_entry(dic, tok);
 
 		str = NULL;
 	}
@@ -428,13 +432,15 @@ void init()
 
 int main(void)
 {
+	init();
+
 	char *test = ": 1 2 + . ;";
-	proc(dic, test);
-	dump(dic);
+	proc(&dic, test);
+	dump_dic(&dic);
 
 	char *str;
 	while ((str = input()) != NULL) {
-		proc(str);
+		proc(&dic, str);
 //		while ((str = strtok(str, " \t\n")) != NULL) {
 //			if (dic.entry_step == 0)
 //				eval(str);
