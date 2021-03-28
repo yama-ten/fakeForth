@@ -259,12 +259,17 @@ bool dic_dump()
 	return true;
 }
 
+bool cr()
+{
+	print("\n");
+	return true;
+}
 
 bool words()
 {
 	char* p = dic.last_word;
 	while (p > dic.dic_buff) {
-		print(p);
+		println(p);
 		char **prev_word = (char**)(p - sizeof(char*));
 		p = *prev_word;
 	}
@@ -279,6 +284,7 @@ struct PROC prim[] = {
 		{ "?dic", 	dic_dump},
 		{ "words", 	words},
 
+		{ "CR",		cr },
 		{ ".",		dot },
 		{ "dup",	dup },
 		{ "swap",	swap },
@@ -531,7 +537,7 @@ void proc(char *str)
 
 void init()
 {
-	print("++ Fake Fotrh ++");
+	println("++ Fake Fotrh ++");
 
 	// stack
 	sp = stack;

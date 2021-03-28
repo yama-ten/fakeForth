@@ -45,6 +45,8 @@ int *pop_int();int print(char *str);
 int print_int(int num);
 int print_hex(int num);
 int print_addr(char* addr);
+int print(char*);
+void println(char*);
 
 bool dic_entry_open();
 bool dic_entry_close();
