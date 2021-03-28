@@ -367,6 +367,13 @@ bool append_addr(char *addr, bool inc_pos)
 
 bool append_name(char* str)
 {
+	if (is_num(str)) {
+		print("Can't dic entry! word='");
+		print(str);
+		println("' is number.");
+		return false;
+	}
+
 	if (!append_addr(dic.last_word, true))
 		return false;
 
@@ -511,27 +518,36 @@ void println(char* str)
 	print("\n");
 }
 
+
 void proc(char *str)
 {
-	char* tok;
-	char *save;
-	char buff[INPUT_MAX];
-	strncpy(buff, str, sizeof(buff));
-	str = buff;
+	char token[20];
+	char* pos = str;
+	do {
+		while (*pos && *pos <= ' ' )
+			pos++;
+		if (*pos == '\0')
+			return;
 
-	while ((tok = strtok_r(str, " \t\n", &save)) != NULL) {
-		if (dic.entry_step == 0) {
-			char *wd = lookup_word(tok);
-			if (wd)
-				proc(wd);
-			else
-				eval(tok);
+		char* tok = token;
+		while (*pos > ' ')
+			*tok++ = *pos++;
+		*tok = '\0';
+//		println(token);
+
+		if (*token != '\0') {
+			if (dic.entry_step == 0) {
+				char *wd = lookup_word(token);
+				if (wd)
+					proc(wd);
+				else
+					eval(token);
+			}
+			else {
+				dic_entry(token);
+			}
 		}
-		else {
-			dic_entry(tok);
-		}
-		str = NULL;
-	}
+	} while(*pos != '\0');
 }
 
 
