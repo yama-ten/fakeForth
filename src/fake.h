@@ -46,23 +46,23 @@ int print_int(int num);
 int print_hex(int num);
 int print_addr(char* addr);
 
-bool dic_entry_open(char *str);
-bool dic_entry_close(char *str);
+bool dic_entry_open();
+bool dic_entry_close();
 
 bool (*lookup_prim(char *str))();
-char* lookup_word(struct DIC* dic, char *str);
+char* lookup_word(char *str);
 
-void eval(struct DIC*, char *str);
-bool check_rest(struct DIC*, int len);
-bool append_word(struct DIC*, char*);
-bool append_addr(struct DIC*, char *addr, bool inc_pos);
-bool append_name(struct DIC*, char*);
-bool append_body(struct DIC*, char*);
+void eval(char *str);
+bool check_rest(int len);
+bool append_word(char*);
+bool append_addr(char *addr, bool inc_pos);
+bool append_name(char*);
+bool append_body(char*);
 
-void dic_entry(struct DIC* dic, char* str);
-void dump_dic(struct DIC *dic);
+void dic_entry(char* str);
+void dump_dic();
 char *input();
-void proc(struct DIC* dic, char *str);
+void proc(char *str);
 
 
 #endif /* FAKE_H_ */

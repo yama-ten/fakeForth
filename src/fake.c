@@ -76,10 +76,13 @@ int print(char *str)
 
 int print_int(int num)
 {
+	bool sign = (num<0);
+	if (sign)
+		num *= -1;
+
 	int len = 0;
 	char buff[20];
 	char *p = buff+sizeof(buff);
-	bool sign = (num<0);
 
 	*--p = '\0';
 	do {
@@ -139,25 +142,6 @@ int print_addr(char* addr)
 	}
 	print("$");
 	print(p);
-
-	/*
-	int len = 0;
-	char buff[20];
-	char *p = buff+sizeof(buff);
-	*--p = '\0';
-	do {
-		if (p == buff) {
-			print("too long num.\n");
-			break;
-		}
-		++len;
-		unsigned dig = num & 0x0f;
-		*--p = (dig<10) ?  '0'+dig : 'A'-10+dig;
-	} while (num >>= 4);
-
-	print("$");
-	print(p);
-	*/
 
 	return len;
 }
@@ -257,15 +241,33 @@ bool int_mod()
 }
 
 
-bool dic_entry_open(char *str)
+bool dic_entry_open()
 {
 	dic.entry_step = 1;
 	return true;
 }
 
-bool dic_entry_close(char *str)
+bool dic_entry_close()
 {
 	dic.entry_step = 0;
+	return true;
+}
+
+bool dic_dump()
+{
+	dump_dic(&dic);
+	return true;
+}
+
+
+bool words()
+{
+	char* p = dic.last_word;
+	while (p > dic.dic_buff) {
+		print(p);
+		char **prev_word = (char**)(p - sizeof(char*));
+		p = *prev_word;
+	}
 	return true;
 }
 
@@ -273,6 +275,10 @@ struct PROC prim[] = {
 		{ "bye",	bye },
 		{ ":",		dic_entry_open },
 		{ ";", 		dic_entry_close },
+
+		{ "?dic", 	dic_dump},
+		{ "words", 	words},
+
 		{ ".",		dot },
 		{ "dup",	dup },
 		{ "swap",	swap },
@@ -297,10 +303,10 @@ bool (*lookup_prim(char *str))()
 	return NULL;
 }
 
-char* lookup_word(struct DIC* dic, char *str)
+char* lookup_word(char *str)
 {
-	char* p = dic->last_word;
-	while (p > dic->dic_buff) {
+	char* p = dic.last_word;
+	while (p > dic.dic_buff) {
 		if (stricmp(str, p)==0)
 			return p;
 
@@ -310,72 +316,72 @@ char* lookup_word(struct DIC* dic, char *str)
 	return NULL;
 }
 
-bool check_rest(struct DIC *dic, int len)
+bool check_rest(int len)
 {
 	int size = DIC_SIZE;
-	char *top = dic->dic_buff;
-	char *cur = dic->append_pos;
+	char *top = dic.dic_buff;
+	char *cur = dic.append_pos;
 	int rest = size - (cur - top);
 
 	return (rest > len);
 }
 
-bool append_word(struct DIC *dic, char* str)
+bool append_word(char* str)
 {
 	int len = strlen(str);
-	if (!check_rest(dic, len)) {
+	if (!check_rest(len)) {
 		print("words buffer overfllow.\n");
 		return false;
 	}
 	else {
-		strncpy(dic->append_pos, str, len);
-		dic->prev_word = dic->append_pos;
-		dic->append_pos += len;
-		*dic->append_pos++ = '\0';
+		strncpy(dic.append_pos, str, len);
+		dic.prev_word = dic.append_pos;
+		dic.append_pos += len;
+		*dic.append_pos++ = '\0';
 	}
 	return true;
 }
 
-bool append_addr(struct DIC* dic, char *addr, bool inc_pos)
+bool append_addr(char *addr, bool inc_pos)
 {
-	if (!check_rest(dic, sizeof(char*))) {
+	if (!check_rest(sizeof(char*))) {
 		print("words buffer overfllow.\n");
 		return false;
 	}
 
-	char **prev_word = (char**)dic->append_pos;
+	char **prev_word = (char**)dic.append_pos;
 	*prev_word = addr;
 	if (inc_pos)
-		dic->append_pos += sizeof(char *);
+		dic.append_pos += sizeof(char *);
 
 	return true;
 }
 
-bool append_name(struct DIC *dic, char* str)
+bool append_name(char* str)
 {
-	if (!append_addr(dic, dic->last_word, true))
+	if (!append_addr(dic.last_word, true))
 		return false;
 
-	dic->last_word =
-	dic->curr_word = dic->append_pos;
-	if (!append_word(dic, str))
+	dic.last_word =
+	dic.curr_word = dic.append_pos;
+	if (!append_word(str))
 		return false;		// 登録失敗
 
 	return true;
 }
 
-bool append_body(struct DIC *dic, char* str)
+bool append_body(char* str)
 {
-	if (!append_word(dic, str)) {
+	if (!append_word(str)) {
 		// 登録失敗
 		return false;
 	}
 	// 本体は語のあとはスペースにする
-	dic->append_pos--;
-	append_word(dic, " \0");
-	dic->append_pos--;
-//	append_addr(dic, dic->curr_word, false);
-	dic->last_word = dic->curr_word;
+	dic.append_pos--;
+	append_word(" \0");
+	dic.append_pos--;
+
+	dic.last_word = dic.curr_word;
 
 	return true;
 }
@@ -396,25 +402,25 @@ bool append_body(struct DIC *dic, char* str)
 // [null] <-- next append_pos;				|
 // [prev-word-addr] ------------------------+
 
-void dic_entry(struct DIC* dic, char* str)
+void dic_entry(char* str)
 {
-	switch (dic->entry_step) {
+	switch (dic.entry_step) {
 	case 0:	//
 		break;
 
 	case 1:	// name
-		append_name(dic, str);
-		dic->entry_step++;
+		append_name(str);
+		dic.entry_step++;
 		break;
 
 	case 2:// body
-		append_body(dic, str);
+		append_body(str);
 		if (strcmp(str, ";") == 0) {
-			*(dic->append_pos-1) = '\0'; // 最後のスペースをNULLにする.
-			dic->prev_word = dic->curr_word;
-			append_addr(dic, dic->prev_word, false);
+			*(dic.append_pos-1) = '\0'; // 最後のスペースをNULLにする.
+			dic.prev_word = dic.curr_word;
+			append_addr(dic.prev_word, false);
 
-			dic->entry_step = 0;
+			dic.entry_step = 0;
 		}
 		break;
 
@@ -475,17 +481,17 @@ char *input()
 /***
  * ワードの評価
  */
-void eval(struct DIC* dic, char *str)
+void eval(char *str)
 {
 
 	if (is_num(str))
 		push_num(str);
 	else {
-		char *wd = lookup_word(dic, str);
+		char *wd = lookup_word(str);
 		if (wd) {
 			int len = strlen(wd);
 			wd += len+1;
-			proc(dic, wd);
+			proc(wd);
 			return;
 		}
 
@@ -503,7 +509,7 @@ void eval(struct DIC* dic, char *str)
 	}
 }
 
-void proc(struct DIC* dic, char *str)
+void proc(char *str)
 {
 	char* tok;
 	char buff[INPUT_MAX];
@@ -511,10 +517,10 @@ void proc(struct DIC* dic, char *str)
 	str = buff;
 
 	while ((tok = strtok(str, " \t\n")) != NULL) {
-		if (dic->entry_step == 0)
-			eval(dic, tok);
+		if (dic.entry_step == 0)
+			eval(tok);
 		else
-			dic_entry(dic, tok);
+			dic_entry(tok);
 
 		str = NULL;
 	}
@@ -539,23 +545,9 @@ int main(void)
 {
 	init();
 
-	char a[] = "addr test";
-	print_addr(a);
-	char test1[] = ": test1 1 2 + . ; \n";
-	char test2[] = ": test2 2 3 * . ; \n";
-	char test3[] = ": test3 3 4 - . ; \n";
-	proc(&dic, test1);
-	dump_dic(&dic);
-	proc(&dic, test2);
-	dump_dic(&dic);
-	proc(&dic, test3);
-	dump_dic(&dic);
-	char test[] = "test\n";
-	proc(&dic, test);
-
 	char *str;
 	while ((str = input()) != NULL) {
-		proc(&dic, str);
+		proc(str);
 		print("ok ");
 	}
 	return EXIT_SUCCESS;
