@@ -307,9 +307,11 @@ char* lookup_word(char *str)
 {
 	char* p = dic.last_word;
 	while (p > dic.dic_buff) {
-		if (stricmp(str, p)==0)
+		if (stricmp(str, p)==0) {
+			p += strlen(p);
+			p += 1;
 			return p;
-
+		}
 		char **prev_word = (char**)(p - sizeof(char*));
 		p = *prev_word;
 	}
@@ -483,45 +485,45 @@ char *input()
  */
 void eval(char *str)
 {
-
 	if (is_num(str))
 		push_num(str);
 	else {
-		char *wd = lookup_word(str);
-		if (wd) {
-			int len = strlen(wd);
-			wd += len+1;
-			proc(wd);
-			return;
-		}
-
 		bool (*pf)() = lookup_prim(str);
 		if (pf != NULL) {
 			(*pf)();
-			return;
 		}
-
-		char msg[80];
-		strcpy(msg, "ERROR:'");
-		strcat(msg, str);
-		strcat(msg, "' is not defined.\n");
-		puts(msg);
+		else {
+			print("ERROR:'");
+			print(str);
+			print("' is not defined.\n");
+		}
 	}
+}
+void println(char* str)
+{
+	print(str);
+	print("\n");
 }
 
 void proc(char *str)
 {
 	char* tok;
+	char *save;
 	char buff[INPUT_MAX];
 	strncpy(buff, str, sizeof(buff));
 	str = buff;
 
-	while ((tok = strtok(str, " \t\n")) != NULL) {
-		if (dic.entry_step == 0)
-			eval(tok);
-		else
+	while ((tok = strtok_r(str, " \t\n", &save)) != NULL) {
+		if (dic.entry_step == 0) {
+			char *wd = lookup_word(tok);
+			if (wd)
+				proc(wd);
+			else
+				eval(tok);
+		}
+		else {
 			dic_entry(tok);
-
+		}
 		str = NULL;
 	}
 }
