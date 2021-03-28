@@ -13,11 +13,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdbool.h>
-
-
-#define STACK_SIZE 16
-#define INPUT_MAX 100
-#define DIC_SIZE 1000
+#include "fake.h"
 
 int stack[STACK_SIZE];
 int *sp;
@@ -26,35 +22,13 @@ char input_buff[INPUT_MAX];
 /***
  * 辞書構造体
  */
-struct DIC {
-
-	int entry_step;
-	// 辞書登録フラグ
-	// 0: 実行モード, 辞書登録状態でない.
-	//    ':' を検出したら, 登録開始. フラグは 1.
-	// 1: 名前登録モード, name 登録中. 語を名前として登録する("NAME" + NULL).
-	//    名前の登録ができたら フラグは 2.
-	// 2: 本体登録モード, word 登録中. ';' まで繰り返し("WORD" + SPACE+NULL).
-	//    ';' を検出したら,登録終了処理. フラグは 0.
-	//
-
-	char *append_pos;
-	char *prev_word;
-	char *last_word;
-	char *curr_word;
-	char dic_buff[DIC_SIZE];
-}	dic;
+struct DIC dic;
 
 
 /***
  * プリミティブ ワード
  *
  */
-
-struct PROC {
-	char* name;
-	bool (*func)();
-};
 
 bool is_num(char *str)
 {
@@ -105,6 +79,8 @@ int print_int(int num)
 	int len = 0;
 	char buff[20];
 	char *p = buff+sizeof(buff);
+	bool sign = (num<0);
+
 	*--p = '\0';
 	do {
 		if (p == buff) {
@@ -115,6 +91,9 @@ int print_int(int num)
 		int dig = num % 10;
 		*--p = '0'+dig;
 	} while (num /= 10);
+
+	if (sign)
+		*--p = '-';
 
 	print(p);
 
@@ -318,7 +297,7 @@ bool (*lookup_prim(char *str))()
 	return NULL;
 }
 
-char* lookup_dict(struct DIC* dic, char *str)
+char* lookup_word(struct DIC* dic, char *str)
 {
 	char* p = dic->last_word;
 	while (p > dic->dic_buff) {
@@ -329,29 +308,6 @@ char* lookup_dict(struct DIC* dic, char *str)
 		p = *prev_word;
 	}
 	return NULL;
-}
-
-/***
- * ワードの評価
- */
-void eval(char *str)
-{
-	bool (*pf)();
-
-	if (is_num(str))
-		push_num(str);
-	else {
-		pf = lookup_prim(str);
-		if (pf != NULL)
-			(*pf)();
-		else {
-			char msg[80];
-			strcpy(msg, "ERROR:'");
-			strcat(msg, str);
-			strcat(msg, "' is not defined.\n");
-			puts(msg);
-		}
-	}
 }
 
 bool check_rest(struct DIC *dic, int len)
@@ -516,15 +472,47 @@ char *input()
 }
 
 
+/***
+ * ワードの評価
+ */
+void eval(struct DIC* dic, char *str)
+{
+
+	if (is_num(str))
+		push_num(str);
+	else {
+		char *wd = lookup_word(dic, str);
+		if (wd) {
+			int len = strlen(wd);
+			wd += len+1;
+			proc(dic, wd);
+			return;
+		}
+
+		bool (*pf)() = lookup_prim(str);
+		if (pf != NULL) {
+			(*pf)();
+			return;
+		}
+
+		char msg[80];
+		strcpy(msg, "ERROR:'");
+		strcat(msg, str);
+		strcat(msg, "' is not defined.\n");
+		puts(msg);
+	}
+}
+
 void proc(struct DIC* dic, char *str)
 {
 	char* tok;
 	char buff[INPUT_MAX];
 	strncpy(buff, str, sizeof(buff));
+	str = buff;
 
 	while ((tok = strtok(str, " \t\n")) != NULL) {
 		if (dic->entry_step == 0)
-			eval(tok);
+			eval(dic, tok);
 		else
 			dic_entry(dic, tok);
 
