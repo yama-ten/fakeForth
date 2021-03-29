@@ -229,13 +229,51 @@ bool dup()
 
 bool swap()
 {
-	int x, y;
+	int n1, n2;
 	int *t;
-	if ((t = pop_int()) != NULL) y = *t; else return false;
-	if ((t = pop_int()) != NULL) x = *t; else return false;
-	push_int(y);
-	push_int(x);
+	if ((t = pop_int()) != NULL) n1 = *t; else return false;
+	if ((t = pop_int()) != NULL) n2 = *t; else return false;
+	push_int(n1);
+	push_int(n2);
 
+	return true;
+}
+
+bool drop()
+{
+	int *t;
+	if ((t = pop_int()) != NULL) return true; else return false;
+}
+
+bool over()
+{
+	int n1,n2;
+	int *t;
+	if ((t = pop_int()) != NULL) n1 = *t; else return false;
+	if ((t = pop_int()) != NULL) n2 = *t; else return false;
+	push_int(n2);
+	push_int(n1);
+	push_int(n2);
+	return true;
+}
+
+bool rot()
+{
+	int n1,n2,n3;
+	int *t;
+	if ((t = pop_int()) != NULL) n1 = *t; else return false;
+	if ((t = pop_int()) != NULL) n2 = *t; else return false;
+	if ((t = pop_int()) != NULL) n3 = *t; else return false;
+	push_int(n2);
+	push_int(n1);
+	push_int(n3);
+	return true;
+}
+
+bool depth()
+{
+	int n = sp-stack;
+	push_int(n);
 	return true;
 }
 
@@ -341,6 +379,95 @@ bool words()
 	return true;
 }
 
+bool minus()
+{
+	int x;
+	int *t;
+	if ((t = pop_int()) != NULL) x = *t; else return false;
+	push_int(-x);
+
+	return true;
+}
+
+bool int_abs()
+{
+	int x;
+	int *t;
+	if ((t = pop_int()) != NULL) x = *t; else return false;
+	if (x < 0)
+		push_int(-x);
+	else
+		push_int(x);
+
+	return true;
+}
+
+bool int_max()
+{
+	int x,y;
+	int *t;
+	if ((t = pop_int()) != NULL) y = *t; else return false;
+	if ((t = pop_int()) != NULL) x = *t; else return false;
+	if (x > y)
+		push_int(x);
+	else
+		push_int(y);
+
+	return true;
+}
+
+bool int_min()
+{
+	int x,y;
+	int *t;
+	if ((t = pop_int()) != NULL) y = *t; else return false;
+	if ((t = pop_int()) != NULL) x = *t; else return false;
+	if (x < y)
+		push_int(x);
+	else
+		push_int(y);
+
+	return true;
+}
+
+bool times_div()
+{
+	int x,y,z;
+	int *t;
+	if ((t = pop_int()) != NULL) z = *t; else return false;
+	if ((t = pop_int()) != NULL) y = *t; else return false;
+	if ((t = pop_int()) != NULL) x = *t; else return false;
+	push_int( x * y / z );
+
+	return true;
+}
+
+bool times_div_mod()
+{
+	int x,y,z;
+	int *t;
+	if ((t = pop_int()) != NULL) z = *t; else return false;
+	if ((t = pop_int()) != NULL) y = *t; else return false;
+	if ((t = pop_int()) != NULL) x = *t; else return false;
+	x *= y;
+	push_int( x % z );
+	push_int( x / z );
+
+	return true;
+}
+
+bool div_mod()
+{
+	int x,y;
+	int *t;
+	if ((t = pop_int()) != NULL) y = *t; else return false;
+	if ((t = pop_int()) != NULL) x = *t; else return false;
+	push_int( x % y );
+	push_int( x / y );
+
+	return true;
+}
+
 struct PROC prim[] = {
 		{ "bye",	bye },
 		{ ":",		dic_entry_open },
@@ -349,15 +476,33 @@ struct PROC prim[] = {
 		{ "?dic", 	dic_dump},
 		{ "words", 	words},
 
+		{ "minus",	minus },
+		{ "abs", 	int_abs },
+		{ "max", 	int_max },
+		{ "min", 	int_min },
+
 		{ "CR",		cr },
 		{ ".",		dot },
 		{ "dup",	dup },
 		{ "swap",	swap },
+		{ "drop",	drop },
+		{ "over",	over },
+		{ "rot",	rot },
+
+		{ "depth",	depth },
+
 		{ "+", 		int_add },
 		{ "-", 		int_sub },
 		{ "*", 		int_mul },
 		{ "/", 		int_div },
 		{ "%", 		int_mod },
+		{ "/mod", 	div_mod },
+		{ "/%", 	div_mod },
+		{ "mod", 	int_mod },
+		{ "*/",		times_div },
+		{ "*/mod",	times_div_mod },
+		{ "*/%",	times_div_mod },
+
 		{ NULL, NULL }
 };
 
