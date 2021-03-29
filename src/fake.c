@@ -32,10 +32,8 @@ unsigned long long atou64(char *str)
 	char *p = str;
 
 	// 頭が "0x" か "$" なら16進
-	if (*p == '$') {
-		p++;
-	} else if (!strncmp(str, "0x", 2))
-		p += 2;
+	if (*p == '$') p++;
+	else if (!strncmp(str, "0x", 2)) p += 2;
 	else
 		return atoi(p);
 
@@ -92,30 +90,27 @@ void push_hex(char *str)
 
 void push_addr(void *addr)
 {
-	unsigned long long addr64 = addr;
-	unsigned long h, l;
-	l = addr & 0xffffffff;
-	h = addr>>32;
-	*sp++ = (unsigned)l;
-	*sp++ = (unsigned)h;
+	*(uintptr_t*)sp = (uintptr_t)addr;
+	*sp += 2;
 }
 
 int *pop_int()
 {
 	if (sp > stack)  {
-		return (int)*--sp;
+		// 返すのは int のポインタ
+		return --sp;
 	} else {
 		puts("stack underflow.\n");
 		return NULL;
 	}
 }
 
-unsigned *pop_addr()
+uintptr_t *pop_addr()
 {
-	if (sp > stack)  {
-		unsigned h = *--sp;
-		unsigned l = *--sp;
-		return (h << 32) | l;
+	if (sp-1 > stack)  {
+		sp -= 2;
+		// 返すのは unsigned long long のポインタ
+		return (uintptr_t*)sp;
 	} else {
 		puts("stack underflow.\n");
 		return NULL;
@@ -566,6 +561,8 @@ void eval(char *str)
 {
 	if (is_num(str))
 		push_num(str);
+	else if (is_hex(str))
+		push_int(atou64(str));
 	else {
 		bool (*pf)() = lookup_prim(str);
 		if (pf != NULL) {

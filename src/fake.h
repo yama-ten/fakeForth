@@ -12,9 +12,9 @@
 #define INPUT_MAX 100
 #define DIC_SIZE 1000
 
-unsigned stack[STACK_SIZE];
-unsigned *sp;
-char input_buff[INPUT_MAX];
+//unsigned stack[STACK_SIZE];
+//unsigned *sp;
+//char input_buff[INPUT_MAX];
 
 #define S0  stack[0];
 #define S1  stack[1];
