@@ -24,6 +24,33 @@ char input_buff[INPUT_MAX];
  */
 struct DIC dic;
 
+// 文字列数値変換
+// 16進対応, 頭が "0x" または "$" なら16進
+// その他は atoi() で 10進.
+unsigned long long atou64(char *str)
+{
+	char *p = str;
+
+	// 頭が "0x" か "$" なら16進
+	if (*p == '$') {
+		p++;
+	} else if (!strncmp(str, "0x", 2))
+		p += 2;
+	else
+		return atoi(p);
+
+	unsigned long long x = 0;
+	while (*p) {
+		char c = toupper(*p++);
+		if (!isxdigit(c))
+			return 0;
+		x <<= 4;
+		x |= (c <= '9') ? c-'0' : c-'A'+10;
+	}
+
+	return x;
+}
+
 
 bool is_num(char *str)
 {
@@ -34,22 +61,61 @@ bool is_num(char *str)
 	return true;
 }
 
+bool is_hex(char *str)
+{
+	if (*str++ != '$')
+		return false;
+
+	for (char *p=str; *p; p++) {
+		if (!isxdigit(*p))
+			return false;
+	}
+	return true;
+}
+
 void push_int(int num)
 {
-	*sp++ = num;
+	*sp++ = (unsigned)num;
 }
 
 void push_num(char *str)
 {
-	int num = atoi(str);
+	unsigned num = atou64(str);
 	push_int(num);
 }
 
+void push_hex(char *str)
+{
+	unsigned num =  atou64(str);
+	push_int(num);
+}
+
+void push_addr(void *addr)
+{
+	unsigned long long addr64 = addr;
+	unsigned long h, l;
+	l = addr & 0xffffffff;
+	h = addr>>32;
+	*sp++ = (unsigned)l;
+	*sp++ = (unsigned)h;
+}
 
 int *pop_int()
 {
 	if (sp > stack)  {
-		return --sp;
+		return (int)*--sp;
+	} else {
+		puts("stack underflow.\n");
+		return NULL;
+	}
+}
+
+unsigned *pop_addr()
+{
+	if (sp > stack)  {
+		unsigned h = *--sp;
+		unsigned l = *--sp;
+		return (h << 32) | l;
 	} else {
 		puts("stack underflow.\n");
 		return NULL;
@@ -122,7 +188,7 @@ int print_hex(int num)
 
 int print_addr(char* addr)
 {
-	unsigned long num = (unsigned long)addr;
+	unsigned long long num = (unsigned long long)addr;
 
 	int len = 0;
 	char buff[20];

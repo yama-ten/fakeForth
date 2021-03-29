@@ -12,6 +12,21 @@
 #define INPUT_MAX 100
 #define DIC_SIZE 1000
 
+unsigned stack[STACK_SIZE];
+unsigned *sp;
+char input_buff[INPUT_MAX];
+
+#define S0  stack[0];
+#define S1  stack[1];
+#define S2  stack[2];
+#define S3  stack[3];
+#define S4  stack[4];
+#define S5  stack[5];
+#define S6  stack[6];
+#define S7  stack[7];
+#define S8  stack[8];
+#define S9  stack[9];
+
 struct DIC {
 
 	int entry_step;
