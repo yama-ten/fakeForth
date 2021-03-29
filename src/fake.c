@@ -61,7 +61,8 @@ bool is_num(char *str)
 
 bool is_hex(char *str)
 {
-	if (*str++ != '$')
+	if (stricmp(str, "0x")) str += 2;
+	else if (*str == '$') str++;
 		return false;
 
 	for (char *p=str; *p; p++) {
