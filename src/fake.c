@@ -25,11 +25,6 @@ char input_buff[INPUT_MAX];
 struct DIC dic;
 
 
-/***
- * プリミティブ ワード
- *
- */
-
 bool is_num(char *str)
 {
 	for (char *p=str; *p; p++) {
@@ -145,6 +140,11 @@ int print_addr(char* addr)
 
 	return len;
 }
+
+/***
+ * プリミティブ ワード
+ *
+ */
 
 bool bye()
 {
@@ -590,3 +590,22 @@ int main(void)
 	}
 	return EXIT_SUCCESS;
 }
+
+
+/*
+ * 変数の実装
+ *
+ * 宣言： vbariable x
+ * variable → 次の語(x) 取得。
+ * (x) が変数テーブルにあるか？ ある → （？再定義する？）おわり。
+ * ない → (x) を変数テーブルに追加。
+ * (x) を辞書に追加。 名前=x / 本体=”VAR" 。
+ *
+ * 使用: x
+ * 辞書検索 (x) ？ ない → エラー
+ * あった （”VAR” だった） → 変数テーブル検索 (x) ない → エラー
+ * あった → テーブル中のアドレス取得。
+ * アドレス プッシュ。
+ * おわり
+ *
+ */
