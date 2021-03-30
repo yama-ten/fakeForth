@@ -22,6 +22,9 @@ char* hp;
 char input_buff[INPUT_MAX];
 int base = 10;
 
+int if_mode = 0;
+int if_nest = 0;
+
 /***
  * 辞書構造体
  */
@@ -544,10 +547,41 @@ void dump_stack()
 	}
 }
 
+// mode = 1 -> exec word when "THEN" or "ELSE", "THEN" mode=0 / "ELSE" mode = 2
+// mode = 2 -> look for "TEHN" mode=0, and exec next word.
+// mode = 3 -> lock for "ELSE" mode=1, and exec next word
+// mode2/3 (nest if find) "IF" mode+=10 / "THEN" mode-=10
+void if_exec()
+{
+	int cond;
+	int *t;
+	if ((t = pop_int()) != NULL) cond = *t; else return;
+
+	if (cond != 0)
+		if_mode = 1;
+	else
+		if_mode = 3;
+}
+
+void if_then()
+{
+	if_mode = 0;
+}
+
+void if_else()
+{
+	if_mode = 2;
+}
+
 struct PROC prim[] = {
 		{ "bye",	bye },
+		{ "if",		if_exec },
+		{ "then",	if_then },
+		{ "else",	if_else },
+
 		{ "var",	nop },
 		{ "const",	nop },
+
 		{ "base",	int_base},
 		{ "hex",	base_hex },
 		{ "decimal",base_dec },
@@ -941,7 +975,29 @@ void proc(char *str)
 	char *tok;
 	while ((tok = get_token(&str, token, sizeof(token))) != NULL) {
 		if (*token != '\0') {
-			if (dic.entry_step == 0) {
+			if (dic.entry_step > 0) {
+					dic_entry(tok);
+			}
+			else if (if_mode > 1) { // 2:find THEN, 3:find ELSE
+					if (!stricmp(tok, "if")) {
+						if_nest++;
+					}
+					else if (!stricmp(tok, "then")) {
+						if (if_mode ==2 && if_nest == 0)
+							if_mode = 0;
+						else
+							if_nest--;
+					}
+					else if (!stricmp(tok, "else") && if_mode ==3 && if_nest == 0) {
+						if_mode = 1;
+					}
+					continue;
+			// mode = 1 -> exec word when "THEN" or "ELSE", "THEN" mode=0 / "ELSE" mode = 2
+			// mode = 2 -> look for "TEHN" mode=0, and exec next word.
+			// mode = 3 -> lock for "ELSE" mode=1, and exec next word
+			// mode2/3 (nest if find) "IF" mode+=10 / "THEN" mode-=10
+			}
+			else {
 				void (*pf2)(char*) = lookup_prim_2(tok);
 				if (pf2 != NULL) {
 					char next_word[20];
@@ -957,9 +1013,6 @@ void proc(char *str)
 					else
 						eval(tok);
 				}
-			}
-			else {
-				dic_entry(tok);
 			}
 		}
 	}
@@ -985,7 +1038,10 @@ void init()
 	// digit base
 	base = 10;
 
+	if_mode = 0;
+	if_nest = 0;
 }
+
 
 int main(void)
 {
