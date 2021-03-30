@@ -11,10 +11,14 @@
 #define STACK_SIZE 16
 #define INPUT_MAX 100
 #define DIC_SIZE 1000
+#define HEAP_SIZE 500
 
-//unsigned stack[STACK_SIZE];
-//unsigned *sp;
-//char input_buff[INPUT_MAX];
+unsigned stack[STACK_SIZE];
+unsigned *sp;
+char heap[HEAP_SIZE];
+char* hp;
+
+char input_buff[INPUT_MAX];
 
 #define S0  stack[0];
 #define S1  stack[1];
@@ -49,7 +53,7 @@ struct DIC {
 
 struct PROC {
 	char* name;
-	bool (*func)();
+	void (*func)();
 };
 
 
@@ -63,10 +67,9 @@ int print_addr(char* addr);
 int print(char*);
 void println(char*);
 
-bool dic_entry_open();
-bool dic_entry_close();
 
-bool (*lookup_prim(char *str))();
+void (*lookup_prim(char *str))();
+void (*lookup_prim_2(char *str))();
 char* lookup_word(char *str);
 
 void eval(char *str);

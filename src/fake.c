@@ -15,9 +15,12 @@
 #include <stdbool.h>
 #include "fake.h"
 
-int stack[STACK_SIZE];
-int *sp;
+unsigned stack[STACK_SIZE];
+unsigned *sp;
+char heap[HEAP_SIZE];
+char* hp;
 char input_buff[INPUT_MAX];
+int base = 10;
 
 /***
  * 辞書構造体
@@ -102,22 +105,22 @@ int *pop_int()
 {
 	if (sp > stack)  {
 		// 返すのは int のポインタ
-		return --sp;
+		return (int *)--sp;
 	} else {
-		puts("stack underflow.\n");
+		print("stack underflow.\n");
 		return NULL;
 	}
 }
 
-uintptr_t *pop_addr()
+uintptr_t pop_addr()
 {
 	if (sp-1 > stack)  {
 		sp -= 2;
 		// 返すのは unsigned long long のポインタ
-		return (uintptr_t*)sp;
+		return (uintptr_t)sp;
 	} else {
-		puts("stack underflow.\n");
-		return NULL;
+		print("stack underflow.\n");
+		return (uintptr_t)NULL;
 	}
 }
 
@@ -126,7 +129,7 @@ int print(char *str)
 	int len = 0;
 	if (str != NULL) {
 		char *p = str;
-		while (str!=NULL && *p) {
+		while (*p) {
 			++len;
 			putc(*p++, stdout);
 		}
@@ -160,6 +163,40 @@ int print_int(int num)
 
 	print(p);
 
+	return len;
+}
+
+char* numtos(int num, int _base)
+{
+	bool sign = (num<0);
+	if (sign)
+		num *= -1;
+
+	int len = 0;
+	char buff[20];
+	char *p = buff+sizeof(buff);
+
+	*--p = '\0';
+	do {
+		if (p == buff) {
+			print("too long num.\n");
+			break;
+		}
+		++len;
+		int dig = num % _base;
+		*--p = (dig<10) ? '0'+dig : 'A'+dig-10;
+	} while (num /= _base);
+
+	if (sign)
+		*--p = '-';
+	return p;
+}
+
+int print_num(int num, int _base)
+{
+	char buff[20];
+	strcpy(buff, numtos(num, _base));
+	int len = print(buff);
 	return len;
 }
 
@@ -211,164 +248,145 @@ int print_addr(char* addr)
  *
  */
 
-bool bye()
+void bye()
 {
 	exit(0);
 }
 
-bool dup()
+void nop()
+{
+}
+
+void dup()
 {
 	int num;
 	int *t;
-	if ((t = pop_int()) != NULL) num = *t; else return false;
+	if ((t = pop_int()) != NULL) num = *t; else return;
 	push_int(num);
 	push_int(num);
-
-	return true;
 }
 
-bool swap()
+void swap()
 {
 	int n1, n2;
 	int *t;
-	if ((t = pop_int()) != NULL) n1 = *t; else return false;
-	if ((t = pop_int()) != NULL) n2 = *t; else return false;
+	if ((t = pop_int()) != NULL) n1 = *t; else return;
+	if ((t = pop_int()) != NULL) n2 = *t; else return;
 	push_int(n1);
 	push_int(n2);
-
-	return true;
 }
 
-bool drop()
+void drop()
 {
-	int *t;
-	if ((t = pop_int()) != NULL) return true; else return false;
+	pop_int();
 }
 
-bool over()
+void over()
 {
 	int n1,n2;
 	int *t;
-	if ((t = pop_int()) != NULL) n1 = *t; else return false;
-	if ((t = pop_int()) != NULL) n2 = *t; else return false;
+	if ((t = pop_int()) != NULL) n1 = *t; else return;
+	if ((t = pop_int()) != NULL) n2 = *t; else return;
 	push_int(n2);
 	push_int(n1);
 	push_int(n2);
-	return true;
 }
 
-bool rot()
+void rot()
 {
 	int n1,n2,n3;
 	int *t;
-	if ((t = pop_int()) != NULL) n1 = *t; else return false;
-	if ((t = pop_int()) != NULL) n2 = *t; else return false;
-	if ((t = pop_int()) != NULL) n3 = *t; else return false;
+	if ((t = pop_int()) != NULL) n1 = *t; else return;
+	if ((t = pop_int()) != NULL) n2 = *t; else return;
+	if ((t = pop_int()) != NULL) n3 = *t; else return;
 	push_int(n2);
 	push_int(n1);
 	push_int(n3);
-	return true;
 }
 
-bool depth()
+void depth()
 {
 	int n = sp-stack;
 	push_int(n);
-	return true;
 }
 
-bool dot()	// print
+void dot()	// print
 {
 	int num;
 	int *t;
-	if ((t = pop_int()) != NULL) num = *t; else return false;
-	print_int(num);
+	if ((t = pop_int()) != NULL) num = *t; else return;
+//	print_int(num);
+	print_num(num, base);
 	putc(' ', stdout);
-
-	return true;
 }
 
-bool int_add()
+void int_add()
 {
 	int x, y;
 	int *t;
-	if ((t = pop_int()) != NULL) y = *t; else return false;
-	if ((t = pop_int()) != NULL) x = *t; else return false;
+	if ((t = pop_int()) != NULL) y = *t; else return;
+	if ((t = pop_int()) != NULL) x = *t; else return;
 	push_int(x + y);
-
-	return true;
 }
 
-bool int_sub()
+void int_sub()
 {
 	int x, y;
 	int *t;
-	if ((t = pop_int()) != NULL) y = *t; else return false;
-	if ((t = pop_int()) != NULL) x = *t; else return false;
+	if ((t = pop_int()) != NULL) y = *t; else return;
+	if ((t = pop_int()) != NULL) x = *t; else return;
 	push_int(x - y);
-
-	return true;
 }
 
-bool int_mul()
+void int_mul()
 {
 	int x, y;
 	int *t;
-	if ((t = pop_int()) != NULL) y = *t; else return false;
-	if ((t = pop_int()) != NULL) x = *t; else return false;
+	if ((t = pop_int()) != NULL) y = *t; else return;
+	if ((t = pop_int()) != NULL) x = *t; else return;
 	push_int(x * y);
-
-	return true;
 }
 
-bool int_div()
+void int_div()
 {
 	int x, y;
 	int *t;
-	if ((t = pop_int()) != NULL) y = *t; else return false;
-	if ((t = pop_int()) != NULL) x = *t; else return false;
+	if ((t = pop_int()) != NULL) y = *t; else return;
+	if ((t = pop_int()) != NULL) x = *t; else return;
 	push_int(x / y);
-
-	return true;
 }
 
-bool int_mod()
+void int_mod()
 {
 	int x, y;
 	int *t;
-	if ((t = pop_int()) != NULL) y = *t; else return false;
-	if ((t = pop_int()) != NULL) x = *t; else return false;
+	if ((t = pop_int()) != NULL) y = *t; else return;
+	if ((t = pop_int()) != NULL) x = *t; else return;
 	push_int(x % y);
-
-	return true;
 }
 
 
-bool dic_entry_open()
+void dic_entry_open()
 {
 	dic.entry_step = 1;
-	return true;
 }
 
-bool dic_entry_close()
+void dic_entry_close()
 {
 	dic.entry_step = 0;
-	return true;
 }
 
-bool dic_dump()
+void dic_dump()
 {
 	dump_dic(&dic);
-	return true;
 }
 
-bool cr()
+void cr()
 {
 	print("\n");
-	return true;
 }
 
-bool words()
+void words()
 {
 	char* p = dic.last_word;
 	while (p > dic.dic_buff) {
@@ -376,104 +394,173 @@ bool words()
 		char **prev_word = (char**)(p - sizeof(char*));
 		p = *prev_word;
 	}
-	return true;
 }
 
-bool minus()
+void minus()
 {
 	int x;
 	int *t;
-	if ((t = pop_int()) != NULL) x = *t; else return false;
+	if ((t = pop_int()) != NULL) x = *t; else return;
 	push_int(-x);
-
-	return true;
 }
 
-bool int_abs()
+void int_abs()
 {
 	int x;
 	int *t;
-	if ((t = pop_int()) != NULL) x = *t; else return false;
+	if ((t = pop_int()) != NULL) x = *t; else return;
 	if (x < 0)
 		push_int(-x);
 	else
 		push_int(x);
-
-	return true;
 }
 
-bool int_max()
+void int_max()
 {
 	int x,y;
 	int *t;
-	if ((t = pop_int()) != NULL) y = *t; else return false;
-	if ((t = pop_int()) != NULL) x = *t; else return false;
+	if ((t = pop_int()) != NULL) y = *t; else return;
+	if ((t = pop_int()) != NULL) x = *t; else return;
 	if (x > y)
 		push_int(x);
 	else
 		push_int(y);
-
-	return true;
 }
 
-bool int_min()
+void int_min()
 {
 	int x,y;
 	int *t;
-	if ((t = pop_int()) != NULL) y = *t; else return false;
-	if ((t = pop_int()) != NULL) x = *t; else return false;
+	if ((t = pop_int()) != NULL) y = *t; else return;
+	if ((t = pop_int()) != NULL) x = *t; else return;
 	if (x < y)
 		push_int(x);
 	else
 		push_int(y);
-
-	return true;
 }
 
-bool times_div()
+void times_div()
 {
 	int x,y,z;
 	int *t;
-	if ((t = pop_int()) != NULL) z = *t; else return false;
-	if ((t = pop_int()) != NULL) y = *t; else return false;
-	if ((t = pop_int()) != NULL) x = *t; else return false;
+	if ((t = pop_int()) != NULL) z = *t; else return;
+	if ((t = pop_int()) != NULL) y = *t; else return;
+	if ((t = pop_int()) != NULL) x = *t; else return;
 	push_int( x * y / z );
-
-	return true;
 }
 
-bool times_div_mod()
+void times_div_mod()
 {
 	int x,y,z;
 	int *t;
-	if ((t = pop_int()) != NULL) z = *t; else return false;
-	if ((t = pop_int()) != NULL) y = *t; else return false;
-	if ((t = pop_int()) != NULL) x = *t; else return false;
+	if ((t = pop_int()) != NULL) z = *t; else return;
+	if ((t = pop_int()) != NULL) y = *t; else return;
+	if ((t = pop_int()) != NULL) x = *t; else return;
 	x *= y;
 	push_int( x % z );
 	push_int( x / z );
-
-	return true;
 }
 
-bool div_mod()
+void div_mod()
 {
 	int x,y;
 	int *t;
-	if ((t = pop_int()) != NULL) y = *t; else return false;
-	if ((t = pop_int()) != NULL) x = *t; else return false;
+	if ((t = pop_int()) != NULL) y = *t; else return;
+	if ((t = pop_int()) != NULL) x = *t; else return;
 	push_int( x % y );
 	push_int( x / y );
+}
 
-	return true;
+void fetch()
+{
+	unsigned* mem = *(unsigned**)pop_addr();
+	unsigned num = *mem;
+	push_int((int)num);
+}
+
+void store()
+{
+	unsigned* mem = *(unsigned**)pop_addr();
+	int num = *pop_int();
+	*(int*)mem = num;
+}
+
+void quest()
+{
+	fetch();
+	dot();
+}
+
+void int_base()
+{
+	int *t;
+	if ((t = pop_int()) != NULL) base = *t; else return;
+}
+
+void base_bin()
+{
+	base = 2;
+}
+
+void base_oct()
+{
+	base = 8;
+}
+
+void base_dec()
+{
+	base = 10;
+}
+
+void base_hex()
+{
+	base = 16;
+}
+
+void dump_stack()
+{
+	for (unsigned* p=sp-1; p >= stack; p--) {
+		uintptr_t a = (uintptr_t)p;
+		char buff[12];
+
+//		/* print h */
+//		unsigned h = (unsigned)(a>>32);
+//		strcpy(buff, numtos(h,16));
+//		for (int n = strlen(buff); n<8; n++)
+//			putc('0', stdout);
+//			print_num(h, 16);
+//			putc('_', stdout);
+
+		// print l
+		unsigned l = (unsigned)(a & 0xffffffff);
+		strcpy(buff, numtos(l,16));
+		int n = 8-(int)strlen(buff);
+		while(n--) putc('0', stdout);
+		print(buff);
+
+		print(":");
+		print_num(*p , base);
+		print("\n");
+	}
 }
 
 struct PROC prim[] = {
 		{ "bye",	bye },
+		{ "var",	nop },
+		{ "const",	nop },
+		{ "base",	int_base},
+		{ "hex",	base_hex },
+		{ "decimal",base_dec },
+		{ "dec",	base_dec },
+		{ "oct",	base_oct },
+		{ "bin",	base_bin },
+		{ "binary",	base_bin },
+
 		{ ":",		dic_entry_open },
 		{ ";", 		dic_entry_close },
 
 		{ "?dic", 	dic_dump},
+		{ "stack", 	dump_stack},
 		{ "words", 	words},
 
 		{ "minus",	minus },
@@ -483,6 +570,10 @@ struct PROC prim[] = {
 
 		{ "CR",		cr },
 		{ ".",		dot },
+		{ "@",		fetch },
+		{ "!",		store },
+		{ "?",		quest },
+
 		{ "dup",	dup },
 		{ "swap",	swap },
 		{ "drop",	drop },
@@ -507,9 +598,85 @@ struct PROC prim[] = {
 };
 
 
-bool (*lookup_prim(char *str))()
+void (*lookup_prim(char *str))()
 {
 	struct PROC *p = prim;
+	while(p->name != NULL) {
+		if (stricmp(str, p->name) == 0) {
+			return p->func;
+		}
+		p++;
+	}
+	return NULL;
+}
+
+void create_var(char* var_name)
+{
+	append_name(var_name);
+	dic.entry_step++;
+
+	uintptr_t var_addr = (uintptr_t)hp;
+	*(unsigned*)var_addr = 0;
+
+	append_body("VAR $");
+	dic.append_pos--;
+	char buff[20];
+	strcpy(buff, numtos(var_addr, 16));
+	append_body(buff);
+	append_body("$0");
+	append_body(";");
+
+	if (sp > stack)
+		*hp = *pop_int();
+
+	hp += sizeof(int);
+}
+
+void create_const(char* const_name)
+{
+	int num;
+	if (sp > stack)
+		num = *(int*)pop_int();
+	else
+		print("ERRROR:no value on stack.\n");
+
+	append_name(const_name);
+	dic.entry_step++;
+
+	append_body("CONST");
+	char buff[20];
+	strcpy(buff, numtos(num, 10));
+	append_body(buff);
+	append_body(";");
+
+	hp += sizeof(int);
+}
+
+void see(char *str)
+{
+	char *wd = lookup_word(str);
+	if (wd) {
+		print(wd);
+	}
+	else {
+		print("ERROR:'");
+		print(str);
+		print("' is not defined.");
+	}
+}
+
+
+struct PROC prim_2[] = {
+		{ "variable",	create_var },
+		{ "constant",	create_const },
+		{ "see",	see },
+
+		{ NULL, NULL }
+};
+
+void (*lookup_prim_2(char *str))()
+{
+	struct PROC *p = prim_2;
 	while(p->name != NULL) {
 		if (stricmp(str, p->name) == 0) {
 			return p->func;
@@ -552,7 +719,7 @@ bool append_word(char* str)
 		return false;
 	}
 	else {
-		strncpy(dic.append_pos, str, len);
+		strncpy((char*)dic.append_pos, str, len);
 		dic.prev_word = dic.append_pos;
 		dic.append_pos += len;
 		*dic.append_pos++ = '\0';
@@ -601,12 +768,21 @@ bool append_body(char* str)
 		// 登録失敗
 		return false;
 	}
-	// 本体は語のあとはスペースにする
-	dic.append_pos--;
-	append_word(" \0");
-	dic.append_pos--;
 
 	dic.last_word = dic.curr_word;
+
+	if (strcmp(str, ";") == 0) {
+		*(dic.append_pos-1) = '\0';
+		dic.prev_word = dic.curr_word;
+		append_addr(dic.prev_word, false);
+		dic.entry_step = 0;
+	}
+	else {
+		// 本体は語のあとはスペースにする
+		dic.append_pos--;
+		append_word(" \0");
+		dic.append_pos--;
+	}
 
 	return true;
 }
@@ -666,10 +842,10 @@ void dump_dic(struct DIC *dic)
 	//char* addr;
 	while (p < dic->append_pos) {
 		// prev_word addr;
-		print("\nprev_word:");
+//		print("\nprev_word:");
 		char **addr = (char**)p;
-		print_addr((char*)*addr);
-		print("\n");
+//		print_addr((char*)*addr);
+//		print("\n");
 		p += sizeof(char*);
 
 		//word_addr = p;
@@ -713,7 +889,7 @@ void eval(char *str)
 	else if (is_hex(str))
 		push_int(atou64(str));
 	else {
-		bool (*pf)() = lookup_prim(str);
+		void (*pf)() = lookup_prim(str);
 		if (pf != NULL) {
 			(*pf)();
 		}
@@ -736,6 +912,9 @@ char* get_token(char **str 		// 取り出し元の文字列
 				, int tok_len	// バッファのサイズ
 				)
 {
+	if (str == NULL)
+		return NULL;
+
 	// 引数 str は戻るときに検査した分だけ進められている.
 	char *src = *str;
 	char *dst = tok;
@@ -763,11 +942,21 @@ void proc(char *str)
 	while ((tok = get_token(&str, token, sizeof(token))) != NULL) {
 		if (*token != '\0') {
 			if (dic.entry_step == 0) {
-				char *wd = lookup_word(tok);
-				if (wd)
-					proc(wd);
-				else
-					eval(tok);
+				void (*pf2)(char*) = lookup_prim_2(tok);
+				if (pf2 != NULL) {
+					char next_word[20];
+					char* str2 = str;
+					char* next = get_token(&str2, next_word, sizeof(next_word));
+					(*pf2)(next);
+					str = str2;
+				}
+				else {
+					char *wd = lookup_word(tok);
+					if (wd)
+						proc(wd);
+					else
+						eval(tok);
+				}
 			}
 			else {
 				dic_entry(tok);
@@ -784,11 +973,18 @@ void init()
 	// stack
 	sp = stack;
 
+	// heap
+	hp = heap;
+
 	// dictionary
 	dic.entry_step = 0;
 	dic.prev_word = dic.dic_buff;
 	dic.last_word = dic.dic_buff;
 	dic.append_pos = dic.dic_buff;
+
+	// digit base
+	base = 10;
+
 }
 
 int main(void)
