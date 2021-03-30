@@ -488,7 +488,7 @@ void store()
 	*(int*)mem = num;
 }
 
-void quest()
+void question()
 {
 	fetch();
 	dot();
@@ -566,11 +566,13 @@ void if_exec()
 void if_then()
 {
 	if_mode = 0;
+	//println("[then]");
 }
 
 void if_else()
 {
 	if_mode = 2;
+	//println("[else]");
 }
 
 struct PROC prim[] = {
@@ -606,7 +608,7 @@ struct PROC prim[] = {
 		{ ".",		dot },
 		{ "@",		fetch },
 		{ "!",		store },
-		{ "?",		quest },
+		{ "?",		question },
 
 		{ "dup",	dup },
 		{ "swap",	swap },
@@ -983,15 +985,23 @@ void proc(char *str)
 						if_nest++;
 					}
 					else if (!stricmp(tok, "then")) {
+						//print("{then}");
 						if (if_mode ==2 && if_nest == 0)
 							if_mode = 0;
 						else
 							if_nest--;
 					}
 					else if (!stricmp(tok, "else") && if_mode ==3 && if_nest == 0) {
+						//print("{else}");
 						if_mode = 1;
 					}
-					continue;
+					//print("[if-mode:");
+					//print_int(if_mode);
+					//print("[if-nest:");
+					//print_int(if_nest);
+					//print("][skip=");
+					//println(tok);
+					//continue;
 			// mode = 1 -> exec word when "THEN" or "ELSE", "THEN" mode=0 / "ELSE" mode = 2
 			// mode = 2 -> look for "TEHN" mode=0, and exec next word.
 			// mode = 3 -> lock for "ELSE" mode=1, and exec next word
