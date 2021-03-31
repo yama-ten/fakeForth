@@ -9,6 +9,7 @@
 #define FAKE_H_
 
 #define STACK_SIZE 16
+#define DO_STACK   16
 #define INPUT_MAX 100
 #define DIC_SIZE 1000
 #define HEAP_SIZE 500
@@ -17,7 +18,11 @@ unsigned stack[STACK_SIZE];
 unsigned *sp;
 char heap[HEAP_SIZE];
 char* hp;
+char* do_stack[DO_STACK];
+char** do_sp;
+char* pc;
 
+char quat_flag = 0;
 char input_buff[INPUT_MAX];
 
 #define S0  stack[0];

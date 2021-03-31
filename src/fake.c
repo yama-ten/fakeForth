@@ -17,13 +17,23 @@
 
 unsigned stack[STACK_SIZE];
 unsigned *sp;
+
 char heap[HEAP_SIZE];
 char* hp;
+
 char input_buff[INPUT_MAX];
 int base = 10;
 
+char* do_stack[DO_STACK];
+char** do_sp;
+
 int if_step = 0;
 int if_nest = 0;
+
+int do_step = 0;
+int do_nest = 0;
+int *do_i = 0;
+int *do_j = 0;
 
 /***
  * 辞書構造体
@@ -568,11 +578,58 @@ void if_else()
 	if_step = 2;	// THEN までスキップするモード
 }
 
+void do_exec()
+{
+	int end_val;
+	int cnt_val;
+	int *t;
+	if ((t = pop_int()) !=NULL) cnt_val = *t; else return;
+	if ((t = pop_int()) !=NULL) end_val = *t; else return;
+
+	if (end_val - cnt_val > 0) {
+		do_step = 1;	// loop まで実行するモード
+		*do_sp++ = pc;
+		push_int(end_val);
+		push_int(cnt_val);
+		do_j = do_i;
+		do_i = (int*)sp-1; // == cnt_val
+	}
+	else {
+		do_step = 2;	// loop までスキップするモード
+	}
+}
+
+void do_loop()
+{
+	do_step = 0;	// loop 　終了
+}
+
+void int_i()
+{
+	push_int(*do_i);
+}
+
+void int_j()
+{
+	push_int(*do_j);
+}
+
+void double_quat(char *str)
+{
+	quat_flag = '"';
+}
+
+
 struct PROC prim[] = {
 		{ "bye",	bye },
 		{ "if",		if_exec },
 		{ "then",	if_then },
 		{ "else",	if_else },
+
+		{ "do",		do_exec },
+		{ "loop",	do_loop },
+		{ "i",		int_i },
+		{ "j",		int_j },
 
 		{ "var",	nop },
 		{ "const",	nop },
@@ -622,6 +679,7 @@ struct PROC prim[] = {
 		{ "*/",		times_div },
 		{ "*/mod",	times_div_mod },
 		{ "*/%",	times_div_mod },
+		{ ".\"",	double_quat },
 
 		{ NULL, NULL }
 };
@@ -698,7 +756,7 @@ void see(char *str)
 struct PROC prim_2[] = {
 		{ "variable",	create_var },
 		{ "constant",	create_const },
-		{ "see",	see },
+		{ "see",		see },
 
 		{ NULL, NULL }
 };
@@ -810,21 +868,21 @@ bool append_body(char* str)
 
 	return true;
 }
-// [prev-word-addr] <-------------------+
-// [this_word.name] <-- curr word		|
-// [null]								|
-// [this_word."1st-word"]				|
-// ['sp']								|
-// [this_word."2nd-word"]				|
-// ['sp']								|
-// ...									|
-// ['sp']								|
-// [this_word."last-word"]				|
-// ['sp']								|
-// [this_word.";"]						|
-// ['sp'] 								|
-// [null] <----- next append_pos		|
-// [prev-word-addr] --------------------+
+// [prev-word-addr] <---------------+
+// [this_word.name] <-- curr word	|
+// [null]							|
+// [this_word."1st-word"]			|
+// ['sp']							|
+// [this_word."2nd-word"]			|
+// ['sp']							|
+// ...								|
+// ['sp']							|
+// [this_word."last-word"]			|
+// ['sp']							|
+// [this_word.";"]					|
+// ['sp'] 							|
+// [null]							|
+// [prev-word-addr] ----------------+ <-- next append_pos
 
 void dic_entry(char* str)
 {
@@ -883,7 +941,8 @@ void dump_dic(struct DIC *dic)
  *
  * コンソール入力をデバッグするには、GDB コマンドファイルに「.gdbinit」を指定。
  * プロジェクトのルートに .gdbinit を置き、`set new-console on` と書き込む。
- * プロジェクトのデバッグの構成で 「Use external console for inferior (open a new console window for input/output)」 をチェック。
+ * プロジェクトのデバッグの構成で 「Use external console for inferior (open
+ * 				a new console window for input/output)」 をチェック。
  */
 char *input()
 {
@@ -938,23 +997,33 @@ char* get_token(char **str 		// 取り出し元の文字列
  */
 void eval(char *str)
 {
+	char *str_save;
 	char *token;
 	char token_buff[20];
 	char next_buff[20];
-	while ((token = get_token(&str, token_buff, sizeof(token_buff))) != NULL) {
+	while (pc = str_save = str,
+			(token = get_token(&str, token_buff, sizeof(token_buff))) != NULL) {
 		// Proccess ENTRY dictionary
 		if (dic.entry_step > 0) {
 			dic_entry(token);
-			continue;
 		}
-
+		else if (quat_flag && str_save) {
+			str = ++str_save;
+			while (*str && *str != quat_flag) {
+				putc(*str++, stdout);
+			}
+			str++;
+			quat_flag = '\0';
+		}
 		// Proccess 'IF' statement.
 		// step = 1 -> exec words untill "THEN" or "ELSE",
 		//				if "THEN" step=0, "ELSE" step=2
 		// step = 2 -> look for "TEHN", step=0, and exec next word.
 		// step = 3 -> lock for "ELSE", step=1, and exec next word.
 		// step 2or3 (nest if find) "IF" nest++ / "THEN" nest--
-		if (if_step > 1) { // 2:look for "TEHN" or 3:lock for "ELSE"
+		else if (if_step>1) {
+			// case 2= look for "TEHN"
+			// case 3= lock for "ELSE"
 			if (!stricmp(token, "IF")) {
 				if_nest++;
 			}
@@ -967,35 +1036,66 @@ void eval(char *str)
 			else if (!stricmp(token, "ELSE") && if_step ==3 && if_nest == 0) {
 				if_step = 1;
 			}
-			continue;
 		}
+		else if (do_step > 0) {
+			// Proccess DO ... LOOP
+			// step = 1 -> DOループ 実行開始
+			// step = 2 -> DOループ 実行中
+			// step = 2 -> LOOP までスキップ
+			switch (do_step) {
+			default:
+				break;
 
+			//case 1:	// push prog pos.
+			//	*do_sp++ = pc;
+			//	do_step++;
+			//	break;
+			//
+			//case 2:	// push prog pos.
+			//	break;
 
-		// Proccess double words statement.
-		// 2語長命令
-		void (*pf2)(char*) = lookup_prim_2(token);
-		if (pf2 != NULL) {		// 2語長 組込みワード
-			char* next_tok = get_token(&str, next_buff, sizeof(next_buff));
-			(*pf2)(next_tok);
-			continue;
+			case 2: // skip to loop.
+				if (!stricmp(token, "DO")) {
+					do_nest++;
+				}
+				else if (!stricmp(token, "LOOP")) {
+					if (do_step == 2 && do_nest == 0) {
+						str = *--do_sp;
+						do_step = 0;
+					}
+					else
+						do_nest--;
+				}
+				break;
+			}
 		}
-
-		// Proccess single word statement.
-		// 1語長命令
-		char *wd = lookup_word(token);
-		if (wd)					// 辞書ワード
-			eval(wd);
-		else if (is_num(token) || is_hex(token))	// 数値
-			push_int(atou64(token));
 		else {
-			void (*pf)() = lookup_prim(token);
-			if (pf != NULL) {	// 1語長 組込みワード
-				(*pf)();
+			// Proccess double words statement.
+			// 2語長命令
+			void (*pf2)(char*) = lookup_prim_2(token);
+			if (pf2 != NULL) {		// 2語長 組込みワード
+				char* next_tok = get_token(&str, next_buff, sizeof(next_buff));
+				(*pf2)(next_tok);
 			}
 			else {
-				print("ERROR:'");
-				print(token);
-				print("' is not defined.\n");
+				// Proccess single word statement.
+				// 1語長命令
+				char *wd = lookup_word(token);
+				if (wd)					// 辞書ワード
+					eval(wd);
+				else if (is_num(token) || is_hex(token))	// 数値
+					push_int(atou64(token));
+				else {
+					void (*pf)() = lookup_prim(token);
+					if (pf != NULL) {	// 1語長 組込みワード
+						(*pf)();
+					}
+					else {
+						print("ERROR:'");
+						print(token);
+						print("' is not defined.\n");
+					}
+				}
 			}
 		}
 	}
@@ -1012,6 +1112,10 @@ void init()
 	// heap
 	hp = heap;
 
+	// do loop
+	do_sp = do_stack;
+	pc = NULL;
+
 	// dictionary
 	dic.entry_step = 0;
 	dic.last_word = dic.dic_buff;
@@ -1022,6 +1126,8 @@ void init()
 
 	if_step = 0;
 	if_nest = 0;
+
+	quat_flag = 0;
 }
 
 
