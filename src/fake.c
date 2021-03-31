@@ -1119,7 +1119,7 @@ void eval(char *str)
 
 void init()
 {
-	println("++ Fake Fotrh ++");
+	println("++ fool Fotrh! 1.0 ++");
 
 	// stack
 	sp = stack;
