@@ -595,7 +595,9 @@ void do_exec()
 		do_i = (int*)sp-1; // == cnt_val
 	}
 	else {
-		do_step = 2;	// loop までスキップするモード
+	//	pop_int();	// cnt
+	//	pop_int();	// end
+		do_step = 3;	// loop までスキップするモード
 	}
 }
 
@@ -983,6 +985,7 @@ char* get_token(char **str 		// 取り出し元の文字列
 		return NULL;	// 取り出すものがなかったとき
 
 	int siz = tok_len;
+	pc = src;
 	while (*src > ' ' && siz--) {
 		*dst++ = *src++;
 	}
@@ -1001,8 +1004,8 @@ void eval(char *str)
 	char *token;
 	char token_buff[20];
 	char next_buff[20];
-	while (pc = str_save = str,
-			(token = get_token(&str, token_buff, sizeof(token_buff))) != NULL) {
+	str_save = str;
+	while ((token = get_token(&str, token_buff, sizeof(token_buff))) != NULL) {
 		// Proccess ENTRY dictionary
 		if (dic.entry_step > 0) {
 			dic_entry(token);
@@ -1014,6 +1017,8 @@ void eval(char *str)
 			}
 			str++;
 			quat_flag = '\0';
+			str_save = str;
+			continue;
 		}
 		// Proccess 'IF' statement.
 		// step = 1 -> exec words untill "THEN" or "ELSE",
@@ -1036,6 +1041,8 @@ void eval(char *str)
 			else if (!stricmp(token, "ELSE") && if_step ==3 && if_nest == 0) {
 				if_step = 1;
 			}
+			str_save = str;
+			continue;
 		}
 		else if (do_step > 0) {
 			// Proccess DO ... LOOP
@@ -1046,58 +1053,66 @@ void eval(char *str)
 			default:
 				break;
 
-			//case 1:	// push prog pos.
-			//	*do_sp++ = pc;
-			//	do_step++;
-			//	break;
-			//
-			//case 2:	// push prog pos.
-			//	break;
+			case 1:	// push prog pos.
+				do_step++;
+				break;
 
-			case 2: // skip to loop.
+			case 2:	// push prog pos.
+				if (!stricmp(token, "LOOP")) {
+					int do_cnt = *pop_int();
+					push_int(++do_cnt);
+
+					str_save = str;
+					str = *--do_sp;
+					continue;
+				}
+				break;
+
+			case 3: // skip to loop.
 				if (!stricmp(token, "DO")) {
 					do_nest++;
 				}
 				else if (!stricmp(token, "LOOP")) {
-					if (do_step == 2 && do_nest == 0) {
-						str = *--do_sp;
+					if (do_step == 3 && do_nest == 0) {
 						do_step = 0;
 					}
 					else
 						do_nest--;
 				}
-				break;
+				str_save = str;
+				continue;
 			}
 		}
+//		else {
+		// Proccess double words statement.
+		// 2語長命令
+		void (*pf2)(char*) = lookup_prim_2(token);
+		if (pf2 != NULL) {		// 2語長 組込みワード
+			char* next_tok = get_token(&str, next_buff, sizeof(next_buff));
+			(*pf2)(next_tok);
+		}
 		else {
-			// Proccess double words statement.
-			// 2語長命令
-			void (*pf2)(char*) = lookup_prim_2(token);
-			if (pf2 != NULL) {		// 2語長 組込みワード
-				char* next_tok = get_token(&str, next_buff, sizeof(next_buff));
-				(*pf2)(next_tok);
-			}
+			// Proccess single word statement.
+			// 1語長命令
+			char *wd = lookup_word(token);
+			if (wd)					// 辞書ワード
+				eval(wd);
+			else if (is_num(token) || is_hex(token))	// 数値
+				push_int(atou64(token));
 			else {
-				// Proccess single word statement.
-				// 1語長命令
-				char *wd = lookup_word(token);
-				if (wd)					// 辞書ワード
-					eval(wd);
-				else if (is_num(token) || is_hex(token))	// 数値
-					push_int(atou64(token));
+				void (*pf)() = lookup_prim(token);
+				if (pf != NULL) {	// 1語長 組込みワード
+					(*pf)();
+				}
 				else {
-					void (*pf)() = lookup_prim(token);
-					if (pf != NULL) {	// 1語長 組込みワード
-						(*pf)();
-					}
-					else {
-						print("ERROR:'");
-						print(token);
-						print("' is not defined.\n");
-					}
+					print("ERROR:'");
+					print(token);
+					print("' is not defined.\n");
 				}
 			}
 		}
+//		}
+		str_save = str;
 	}
 }
 
