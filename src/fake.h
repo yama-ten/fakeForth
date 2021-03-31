@@ -43,10 +43,8 @@ struct DIC {
 	//    ';' を検出したら,登録終了処理. フラグは 0.
 	//
 
-	char *append_pos;
-	char *prev_word;
-	char *last_word;
-	char *curr_word;
+	char *append_pos;	// 追加登録ポイント
+	char *last_word;	// 辞書末尾のワード
 	char dic_buff[DIC_SIZE];
 };
 
@@ -74,7 +72,7 @@ char* lookup_word(char *str);
 
 void eval(char *str);
 bool check_rest(int len);
-bool append_word(char*);
+bool append_word(char *str);
 bool append_addr(char *addr, bool inc_pos);
 bool append_name(char*);
 bool append_body(char*);
@@ -82,7 +80,7 @@ bool append_body(char*);
 void dic_entry(char* str);
 void dump_dic();
 char *input();
-void proc(char *str);
+void eval(char *str);
 
 
 #endif /* FAKE_H_ */

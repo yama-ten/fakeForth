@@ -22,7 +22,7 @@ char* hp;
 char input_buff[INPUT_MAX];
 int base = 10;
 
-int if_mode = 0;
+int if_step = 0;
 int if_nest = 0;
 
 /***
@@ -247,7 +247,7 @@ int print_addr(char* addr)
 }
 
 /***
- * プリミティブ ワード
+ * 組込みワード
  *
  */
 
@@ -318,7 +318,6 @@ void dot()	// print
 	int num;
 	int *t;
 	if ((t = pop_int()) != NULL) num = *t; else return;
-//	print_int(num);
 	print_num(num, base);
 	putc(' ', stdout);
 }
@@ -526,7 +525,7 @@ void dump_stack()
 		uintptr_t a = (uintptr_t)p;
 		char buff[12];
 
-//		/* print h */
+//		/* print 64bit h */
 //		unsigned h = (unsigned)(a>>32);
 //		strcpy(buff, numtos(h,16));
 //		for (int n = strlen(buff); n<8; n++)
@@ -554,19 +553,19 @@ void if_exec()
 	if ((t = pop_int()) != NULL) cond = *t; else return;
 
 	if (cond != 0)
-		if_mode = 1;	// ELSE か THEN まで実行するモード
+		if_step = 1;	// ELSE か THEN まで実行するモード
 	else
-		if_mode = 3;	// ELSE までスキップして THEN まで実行するモード
+		if_step = 3;	// ELSE までスキップして THEN まで実行するモード
 }
 
 void if_then()
 {
-	if_mode = 0;	// IF 　終了
+	if_step = 0;	// IF 　終了
 }
 
 void if_else()
 {
-	if_mode = 2;	// THEN までスキップするモード
+	if_step = 2;	// THEN までスキップするモード
 }
 
 struct PROC prim[] = {
@@ -750,7 +749,6 @@ bool append_word(char* str)
 	}
 	else {
 		strncpy((char*)dic.append_pos, str, len);
-		dic.prev_word = dic.append_pos;
 		dic.append_pos += len;
 		*dic.append_pos++ = '\0';
 	}
@@ -774,7 +772,8 @@ bool append_addr(char *addr, bool inc_pos)
 
 bool append_name(char* str)
 {
-	if (is_num(str)) {
+	// 数値を辞書登録しない
+	if (is_num(str) || is_hex(str)) {
 		print("Can't dic entry! word='");
 		print(str);
 		println("' is number.");
@@ -784,8 +783,7 @@ bool append_name(char* str)
 	if (!append_addr(dic.last_word, true))
 		return false;
 
-	dic.last_word =
-	dic.curr_word = dic.append_pos;
+	dic.last_word = dic.append_pos;
 	if (!append_word(str))
 		return false;		// 登録失敗
 
@@ -799,12 +797,8 @@ bool append_body(char* str)
 		return false;
 	}
 
-	dic.last_word = dic.curr_word;
-
 	if (strcmp(str, ";") == 0) {
 		*(dic.append_pos-1) = '\0';
-		dic.prev_word = dic.curr_word;
-		append_addr(dic.prev_word, false);
 		dic.entry_step = 0;
 	}
 	else {
@@ -816,22 +810,21 @@ bool append_body(char* str)
 
 	return true;
 }
-
-// [prev_word_addr] <-----------------------+
-// [this_word.name] <-- curr word			|
-// [null]									|
-// [this_word."1st-word"]					|
-// ['sp']									|
-// [this_word."2nd-word"]					|
-// ['sp']									|
-// ...										|
-// ['sp']									|
-// [this_word."last-word"]					|
-// ['sp']									|
-// [this_word.";"]							|
-// ['sp'] 									|
-// [null] <-- next append_pos;				|
-// [prev-word-addr] ------------------------+
+// [prev-word-addr] <-------------------+
+// [this_word.name] <-- curr word		|
+// [null]								|
+// [this_word."1st-word"]				|
+// ['sp']								|
+// [this_word."2nd-word"]				|
+// ['sp']								|
+// ...									|
+// ['sp']								|
+// [this_word."last-word"]				|
+// ['sp']								|
+// [this_word.";"]						|
+// ['sp'] 								|
+// [null] <----- next append_pos		|
+// [prev-word-addr] --------------------+
 
 void dic_entry(char* str)
 {
@@ -848,8 +841,7 @@ void dic_entry(char* str)
 		append_body(str);
 		if (strcmp(str, ";") == 0) {
 			*(dic.append_pos-1) = '\0'; // 最後のスペースをNULLにする.
-			dic.prev_word = dic.curr_word;
-			append_addr(dic.prev_word, false);
+			append_addr(dic.last_word, false);
 
 			dic.entry_step = 0;
 		}
@@ -864,18 +856,11 @@ void dump_dic(struct DIC *dic)
 {
 	print("dic:"); print_addr((char*)dic); print("\n");
 	print("dic.append_pos:"); print_addr(dic->append_pos); print("\n");
-	print("dic.prev_word:"); print_addr(dic->prev_word); print("\n");
 	print("dic.last_word:"); print_addr(dic->last_word); print("\n");
-	print("dic.curr_word:"); print_addr(dic->curr_word); print("\n");
 
 	char* p = dic->dic_buff;
 	//char* addr;
 	while (p < dic->append_pos) {
-		// prev_word addr;
-//		print("\nprev_word:");
-//		char **addr = (char**)p;
-//		print_addr((char*)*addr);
-//		print("\n");
 		p += sizeof(char*);
 
 		//word_addr = p;
@@ -908,35 +893,18 @@ char *input()
 	return p;
 }
 
-
 /***
- * ワードの評価
+ * 表示改行
  */
-void eval(char *str)
-{
-	if (is_num(str))
-		push_num(str);
-	else if (is_hex(str))
-		push_int(atou64(str));
-	else {
-		void (*pf)() = lookup_prim(str);
-		if (pf != NULL) {
-			(*pf)();
-		}
-		else {
-			print("ERROR:'");
-			print(str);
-			print("' is not defined.\n");
-		}
-	}
-}
-
 void println(char* str)
 {
 	print(str);
 	print("\n");
 }
 
+/***
+ * 1語取得
+ */
 char* get_token(char **str 		// 取り出し元の文字列
 				, char *tok		// 取り出し先のバッファ
 				, int tok_len	// バッファのサイズ
@@ -965,50 +933,69 @@ char* get_token(char **str 		// 取り出し元の文字列
 	return tok;			// 取り出した結果
 }
 
-void proc(char *str)
+/***
+ * ワードの評価
+ */
+void eval(char *str)
 {
-	char token[20];
-	char *tok;
-	while ((tok = get_token(&str, token, sizeof(token))) != NULL) {
-		if (*token != '\0') {
-			if (dic.entry_step > 0) {
-					dic_entry(tok);
+	char *token;
+	char token_buff[20];
+	char next_buff[20];
+	while ((token = get_token(&str, token_buff, sizeof(token_buff))) != NULL) {
+		// Proccess ENTRY dictionary
+		if (dic.entry_step > 0) {
+			dic_entry(token);
+			continue;
+		}
+
+		// Proccess 'IF' statement.
+		// step = 1 -> exec words untill "THEN" or "ELSE",
+		//				if "THEN" step=0, "ELSE" step=2
+		// step = 2 -> look for "TEHN", step=0, and exec next word.
+		// step = 3 -> lock for "ELSE", step=1, and exec next word.
+		// step 2or3 (nest if find) "IF" nest++ / "THEN" nest--
+		if (if_step > 1) { // 2:look for "TEHN" or 3:lock for "ELSE"
+			if (!stricmp(token, "IF")) {
+				if_nest++;
 			}
-			else if (if_mode > 1) { // 2:find THEN, 3:find ELSE
-					if (!stricmp(tok, "if")) {
-						if_nest++;
-					}
-					else if (!stricmp(tok, "then")) {
-						if (if_mode ==2 && if_nest == 0)
-							if_mode = 0;
-						else
-							if_nest--;
-					}
-					else if (!stricmp(tok, "else") && if_mode ==3 && if_nest == 0) {
-						if_mode = 1;
-					}
-					//continue;
-			// mode = 1 -> exec word when "THEN" or "ELSE", "THEN" mode=0 / "ELSE" mode = 2
-			// mode = 2 -> look for "TEHN" mode=0, and exec next word.
-			// mode = 3 -> lock for "ELSE" mode=1, and exec next word
-			// mode2/3 (nest if find) "IF" mode+=10 / "THEN" mode-=10
+			else if (!stricmp(token, "THEN")) {
+				if (if_step ==2 && if_nest == 0)
+					if_step = 0;
+				else
+					if_nest--;
+			}
+			else if (!stricmp(token, "ELSE") && if_step ==3 && if_nest == 0) {
+				if_step = 1;
+			}
+			continue;
+		}
+
+
+		// Proccess double words statement.
+		// 2語長命令
+		void (*pf2)(char*) = lookup_prim_2(token);
+		if (pf2 != NULL) {		// 2語長 組込みワード
+			char* next_tok = get_token(&str, next_buff, sizeof(next_buff));
+			(*pf2)(next_tok);
+			continue;
+		}
+
+		// Proccess single word statement.
+		// 1語長命令
+		char *wd = lookup_word(token);
+		if (wd)					// 辞書ワード
+			eval(wd);
+		else if (is_num(token) || is_hex(token))	// 数値
+			push_int(atou64(token));
+		else {
+			void (*pf)() = lookup_prim(token);
+			if (pf != NULL) {	// 1語長 組込みワード
+				(*pf)();
 			}
 			else {
-				void (*pf2)(char*) = lookup_prim_2(tok);
-				if (pf2 != NULL) {
-					char next_word[20];
-					char* str2 = str;
-					char* next = get_token(&str2, next_word, sizeof(next_word));
-					(*pf2)(next);
-					str = str2;
-				}
-				else {
-					char *wd = lookup_word(tok);
-					if (wd)
-						proc(wd);
-					else
-						eval(tok);
-				}
+				print("ERROR:'");
+				print(token);
+				print("' is not defined.\n");
 			}
 		}
 	}
@@ -1027,14 +1014,13 @@ void init()
 
 	// dictionary
 	dic.entry_step = 0;
-	dic.prev_word = dic.dic_buff;
 	dic.last_word = dic.dic_buff;
 	dic.append_pos = dic.dic_buff;
 
 	// digit base
 	base = 10;
 
-	if_mode = 0;
+	if_step = 0;
 	if_nest = 0;
 }
 
@@ -1045,7 +1031,7 @@ int main(void)
 
 	char *str;
 	while ((str = input()) != NULL) {
-		proc(str);
+		eval(str);
 		print("ok ");
 	}
 	return EXIT_SUCCESS;
@@ -1053,18 +1039,16 @@ int main(void)
 
 
 /*
- * 変数の実装
+ * 変数の実装 別の方法
  *
  * 宣言： vbariable x
  * variable → 次の語(x) 取得。
- * (x) が変数テーブルにあるか？ ある → （？再定義する？）おわり。
- * ない → (x) を変数テーブルに追加。
- * (x) を辞書に追加。 名前=x / 本体=”VAR" 。
+ * 変数テーブルに追加。
+ * (x) を辞書に追加。 名前=x / 本体=”VAR $addr-L $addr-H ;" 。
  *
  * 使用: x
  * 辞書検索 (x) ？ ない → エラー
- * あった （”VAR” だった） → 変数テーブル検索 (x) ない → エラー
- * あった → テーブル中のアドレス取得。
+ * あった （”VAR” だった） → テーブル中のアドレス取得。
  * アドレス プッシュ。
  * おわり
  *
