@@ -8,6 +8,9 @@
 #ifndef FAKE_H_
 #define FAKE_H_
 
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
 #define STACK_SIZE 16
 #define DO_STACK   16
 #define INPUT_MAX 100

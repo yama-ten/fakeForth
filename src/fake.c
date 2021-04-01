@@ -528,7 +528,7 @@ void if_exec()
 	if (n1 != 0)
 		if_step = 1;	// ELSE か THEN まで実行するモード
 	else
-		if_step = 3;	// ELSE までスキップして THEN まで実行するモード
+		if_step = 2;	// ELSE までスキップして THEN まで実行するモード
 }
 
 void if_then()
@@ -538,7 +538,10 @@ void if_then()
 
 void if_else()
 {
-	if_step = 2;	// THEN までスキップするモード
+	if (if_step == 1)
+		if_step = 3;	// THEN までスキップするモード
+	else
+		if_step = 0;
 }
 
 
@@ -662,7 +665,8 @@ void create_var(char** str)
 	char buff[20];
 	int len;
 	char* name = get_token(str, &len);
-	strncpy(buff, name, len);
+	int cut = MIN(sizeof(name)-1,len);
+	strncpy(buff, name, cut);
 	buff[len] = '\0';
 
 	append_name(name);
@@ -691,7 +695,8 @@ void create_const(char ** str)
 	char buff[20];
 	int len;
 	char* name = get_token(str, &len);
-	strncpy(buff, name, len);
+	int cut = MIN(sizeof(name)-1,len);
+	strncpy(buff, name, cut);
 	buff[len] = '\0';
 
 	int num;
@@ -714,11 +719,11 @@ void create_const(char ** str)
 
 void see(char** str)
 {
-	char *name;
 	char buff[20];
 	int len;
-	name = get_token(str, &len);
-	strncpy(buff, name, len);
+	char *name = get_token(str, &len);
+	int cut= MIN(sizeof(name)-1,len);
+	strncpy(buff, name, cut);
 	buff[len] = '\0';
 
 	char *wd = lookup_word(buff);
@@ -733,7 +738,7 @@ void see(char** str)
 }
 
 
-void double_quat(char** str)
+void dot_quat(char** str)
 {
 	quat_flag = '"';
 	char buff[20];
@@ -741,7 +746,7 @@ void double_quat(char** str)
 	char *p = get_token(str, &len);
 //	while (*p && *p!=quat_flag)
 //		put
-	strncpy(buff, buff, len);
+	strncpy(buff, p, MIN(sizeof(buff),len));
 	buff[len] = '\0';
 	print(buff);
 }
@@ -750,7 +755,7 @@ struct PROC prim_2[] = {
 		{ "variable",	create_var },
 		{ "constant",	create_const },
 		{ "see",		see },
-		{ ".\"",	double_quat },
+		{ ".\"",	dot_quat },
 
 		{ NULL, NULL }
 };
@@ -964,33 +969,27 @@ char* get_token(char **str, int* len)
 		return NULL;
 
 	// 引数 str は戻るときに検査した分だけ進められている.
-	//char *src = *str;
-	//char *dst = tok;
+	char *p = *str;
+	int cnt = 0;
 	char *ret = NULL;
-	//*dst = '\0';
 
-	while (**str && **str <= ' ') (*str)++;
-	//*str = src;			// 検査分引数のアドレスが進む
-	ret = *str;			// 返すアドレス
+	while (*p && *p <= ' ') p++;
+	ret = p;			// 返すアドレス
 	if (**str == '\0')
 		return NULL;	// 取り出すものがなかったとき
 
-//	int siz = tok_len;
-	pc = *str;
-	*len = 0;
-	//while (*src > ' ' && siz--) {
-	while (**str > ' ' || quat_flag) {
-		(*str)++;
-		(*len)++;
-		if (**str == quat_flag) {
-			(*str)++;
-			(*len)++;
+	pc = p;
+	while (*p > ' ' || quat_flag) {
+		p++;
+		cnt++;
+		if (*p == quat_flag) {
+			p++;
 			quat_flag = '\0';
 			break;
 		}
 	}
-	//*dst = '\0';
-	//*str = *str;			// 検査分引数のアドレスが進む
+	*str = p;			// 検査分引数のアドレスが進む
+	*len = cnt;
 
 	return ret;			// 取り出した結果
 }
@@ -1007,7 +1006,8 @@ void eval(char *str)
 	//char next_buff[20];
 	str_save = str;
 	while ((tok = get_token(&str, &len)) != NULL) {
-		strncpy(tok_buff, tok, len);
+		int cut = MIN(sizeof(tok_buff)-1,len);
+		strncpy(tok_buff, tok, cut);
 		tok_buff[len] = '\0';
 		// Proccess ENTRY dictionary
 		if (dic.entry_step > 0) {
@@ -1030,21 +1030,51 @@ void eval(char *str)
 		// step = 3 -> lock for "ELSE", step=1, and exec next word.
 		// step 2or3 (nest if find) "IF" nest++ / "THEN" nest--
 		else if (if_step>1) {
-			// case 2= look for "TEHN"
-			// case 3= lock for "ELSE"
-			if (!stricmp(tok_buff, "IF")) {
-				if_nest++;
-			}
-			else if (!stricmp(tok_buff, "THEN")) {
-				if ((if_step==2 && if_nest == 0)
-					)
-					if_step = 0;
-				else
-					if_nest--;
-			}
-			else if (!stricmp(tok_buff, "ELSE")
-					&& if_step==3 && if_nest == 0) {
-				if_step = 1;
+			switch(if_step) {
+			case 1: // if (true)
+				if (!stricmp(tok_buff, "ELSE")) {
+						if_step = 3;
+				}
+				if (!stricmp(tok_buff, "THEN")) {
+						if_step = 0;
+				}
+				break;
+		//	}
+
+			case 2:	// skip to else or then
+				if (!stricmp(tok_buff, "IF")) {
+					if_nest++;
+				}
+				else if (!stricmp(tok_buff, "THEN")) {
+					if (if_nest == 0) {
+						if_step = 0;
+						break;
+					} else
+						if_nest--;
+				}
+				else if (!stricmp(tok_buff, "ELSE")) {
+					if (if_nest == 0) {
+						if_step = 0;
+						break;
+					}
+					else
+						if_nest--;
+					break;
+				}
+				continue;
+
+			case 3: // skip to then
+				if (!stricmp(tok_buff, "IF")) {
+					if_nest++;
+				}
+				else if (!stricmp(tok_buff, "THEN")) {
+					if (if_nest == 0)
+						if_step = 0;
+					else
+						if_nest--;
+				}
+		//		str_save = str;
+				continue;
 			}
 		//	str_save = str;
 		//	continue;
@@ -1156,9 +1186,9 @@ int main(void)
 {
 	init();
 
-	char *str;
+	char *str = NULL;
 	while ((str = input()) != NULL) {
-		eval(str);
+		eval(input_buff);
 		print("ok ");
 	}
 	return EXIT_SUCCESS;
@@ -1178,5 +1208,5 @@ int main(void)
  * あった （”VAR” だった） → テーブル中のアドレス取得。
  * アドレス プッシュ。
  * おわり
- * 10 1 do i dup . % 3 if cr  ." fool"  else cr ." not fool" then loop
+ * 10 1 do i dup cr . 3 % if ." not fool"  else ." fool" then loop\n
  */
