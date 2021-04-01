@@ -63,7 +63,8 @@ struct PROC {
 bool is_num(char *str);
 void push_int(int num);
 void push_num(char *str);
-int *pop_int();int print(char *str);
+int pop_int();
+int print(char *str);
 int print_int(int num);
 int print_hex(int num);
 int print_addr(char* addr);
@@ -84,7 +85,9 @@ bool append_body(char*);
 
 void dic_entry(char* str);
 void dump_dic();
-char *input();
+
+char* get_token(char **str, int *len);
+ char *input();
 void eval(char *str);
 
 
