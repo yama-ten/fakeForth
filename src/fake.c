@@ -533,7 +533,7 @@ void if_exec()
 
 void if_then()
 {
-	if_step = 0;	// IF 　終了
+	if_step = 0;		// IF 　終了
 }
 
 void if_else()
@@ -561,8 +561,6 @@ void do_exec()
 		do_i = (int*)sp-1; // == cnt_val
 	}
 	else {
-	//	pop_int();	// cnt
-	//	pop_int();	// end
 		do_step = 3;	// loop までスキップするモード
 	}
 }
@@ -661,7 +659,6 @@ void (*lookup_prim(char *str))()
 
 void create_var(char** str)
 {
-	//char *next = *str;
 	char buff[20];
 	int len;
 	char* name = get_token(str, &len);
@@ -677,7 +674,6 @@ void create_var(char** str)
 
 	append_body("VAR $");
 	dic.append_pos--;
-//	char buff[20];
 	strcpy(buff, numtos(var_addr, 16));
 	append_body(buff);
 	append_body("$0");
@@ -691,7 +687,6 @@ void create_var(char** str)
 
 void create_const(char ** str)
 {
-	//char *next = *str;
 	char buff[20];
 	int len;
 	char* name = get_token(str, &len);
@@ -709,7 +704,6 @@ void create_const(char ** str)
 	dic.entry_step++;
 
 	append_body("CONST");
-//	char buff[20];
 	strcpy(buff, numtos(num, 10));
 	append_body(buff);
 	append_body(";");
@@ -744,8 +738,6 @@ void dot_quat(char** str)
 	char buff[20];
 	int len;
 	char *p = get_token(str, &len);
-//	while (*p && *p!=quat_flag)
-//		put
 	strncpy(buff, p, MIN(sizeof(buff),len));
 	buff[len] = '\0';
 	print(buff);
@@ -999,28 +991,19 @@ char* get_token(char **str, int* len)
  */
 void eval(char *str)
 {
-	char *str_save;
 	char *tok;
 	int len;
 	char tok_buff[20];
-	//char next_buff[20];
-	str_save = str;
 	while ((tok = get_token(&str, &len)) != NULL) {
 		int cut = MIN(sizeof(tok_buff)-1,len);
 		strncpy(tok_buff, tok, cut);
 		tok_buff[len] = '\0';
-		// Proccess ENTRY dictionary
 		if (dic.entry_step > 0) {
 			dic_entry(tok_buff);
 		}
-		else if (quat_flag && str_save) {
-			//str = ++str_save;
-			//while (*str && *str != quat_flag) {
-				print(tok_buff);
-			//}
-			//str++;
+		else if (quat_flag && tok) {
+			print(tok_buff);
 			quat_flag = '\0';
-			str_save = str;
 			continue;
 		}
 		// Proccess 'IF' statement.
@@ -1039,7 +1022,6 @@ void eval(char *str)
 						if_step = 0;
 				}
 				break;
-		//	}
 
 			case 2:	// skip to else or then
 				if (!stricmp(tok_buff, "IF")) {
@@ -1073,11 +1055,8 @@ void eval(char *str)
 					else
 						if_nest--;
 				}
-		//		str_save = str;
 				continue;
 			}
-		//	str_save = str;
-		//	continue;
 		}
 		else if (do_step > 0) {
 			// Proccess DO ... LOOP
@@ -1097,10 +1076,8 @@ void eval(char *str)
 					int do_cnt = pop_int();
 					push_int(++do_cnt);
 
-					str_save = str;
 					str = *--do_sp;
 					do_step = 1;
-				//	continue;
 				}
 				break;
 
@@ -1115,16 +1092,13 @@ void eval(char *str)
 					else
 						do_nest--;
 				}
-				str_save = str;
 				continue;
 			}
 		}
-//		else {
 		// Proccess double words statement.
 		// 2語長命令
 		void (*pf2)(char**) = lookup_prim_2(tok_buff);
 		if (pf2 != NULL) {		// 2語長 組込みワード
-			//char* next_tok = get_token(&str, next_buff, sizeof(next_buff));
 			(*pf2)(&str);
 		}
 		else {
@@ -1148,7 +1122,7 @@ void eval(char *str)
 			}
 		}
 //		}
-		str_save = str;
+		//str_save = str;
 	}
 }
 
@@ -1193,7 +1167,7 @@ int main(void)
 	}
 	return EXIT_SUCCESS;
 }
-
+// test code -> "10 1 do i dup cr . 3 % if ." not fool"  else ." fool" then loop\n"
 
 /*
  * 変数の実装 別の方法
@@ -1208,5 +1182,5 @@ int main(void)
  * あった （”VAR” だった） → テーブル中のアドレス取得。
  * アドレス プッシュ。
  * おわり
- * 10 1 do i dup cr . 3 % if ." not fool"  else ." fool" then loop\n
+ *
  */
