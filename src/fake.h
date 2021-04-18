@@ -90,7 +90,7 @@ void dic_entry(char* str);
 void dump_dic();
 
 char* get_token(char **str, int *len);
- char *input();
+char *input();
 void eval(char *str);
 
 
